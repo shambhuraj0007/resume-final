@@ -1,0 +1,21 @@
+{
+  "name": "ResumeAI",
+  "short_name": "ResumeAI",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#ffffff",
+  "description": "Build professional, ATS-friendly resumes effortlessly with ResumeAI.",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ],
+  "serviceworker": {
+    "src": "/service-worker.js",
+    "scope": "/"
+  }
+}

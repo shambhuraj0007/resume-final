@@ -1,0 +1,249 @@
+name: Production Deployment
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  APP_DIR: /home/ec2-user/apps/resume
+  APP_PORT: 8888
+  HEALTH_CHECK_TIMEOUT: 30
+  HEALTH_CHECK_RETRIES: 5
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy on EC2
+        uses: appleboy/ssh-action@v0.1.10
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          timeout: 55m
+          command_timeout: 50m
+          script: |
+            set -e
+            
+            # Color codes for output
+            RED='\033[0;31m'
+            GREEN='\033[0;32m'
+            YELLOW='\033[1;33m'
+            NC='\033[0m' # No Color
+            
+            log_info() { echo -e "${GREEN}✅ $1${NC}"; }
+            log_warn() { echo -e "${YELLOW}⚠️  $1${NC}"; }
+            log_error() { echo -e "${RED}❌ $1${NC}"; }
+            
+            trap 'log_error "Deployment failed at line $LINENO"; exit 1' ERR
+
+            echo "======================================"
+            echo "🚀 Starting Production Deployment"
+            echo "======================================"
+            echo "Timestamp: $(date)"
+            echo ""
+
+            APP_DIR=/home/ec2-user/apps/resume
+            REPO=https://${{ secrets.DEPLOY_TOKEN }}@github.com/shorlistAI/ShortlistAI.git
+            BRANCH=main
+            BACKUP_DIR="${APP_DIR}_backup_$(date +%s)"
+
+            # Step 1: Backup current deployment
+            echo "Step 1: Creating backup..."
+            if [ -d "$APP_DIR/.next" ]; then
+              mkdir -p "$BACKUP_DIR"
+              cp -r "$APP_DIR/.next" "$BACKUP_DIR/" 2>/dev/null || true
+              cp -r "$APP_DIR/node_modules" "$BACKUP_DIR/" 2>/dev/null || true
+              log_info "Backup created at $BACKUP_DIR"
+            else
+              log_warn "No previous build to backup"
+            fi
+
+            # Step 2: Setup directory
+            echo ""
+            echo "Step 2: Setting up directory..."
+            mkdir -p "$APP_DIR"
+            cd "$APP_DIR"
+            log_info "Directory ready"
+
+            # Step 3: Update repository
+            echo ""
+            echo "Step 3: Updating repository..."
+            if [ ! -d .git ]; then
+              git clone "$REPO" .
+              log_info "Repository cloned"
+            else
+              git remote set-url origin "$REPO" || true
+              git fetch --all
+              git checkout "$BRANCH"
+              git reset --hard "origin/$BRANCH"
+              log_info "Repository updated to latest"
+            fi
+
+            # Step 4: Environment variables
+            echo ""
+            echo "Step 4: Configuring environment..."
+            cat > .env.production << 'EOF'
+            # Database
+            MONGODB_URI=${{ secrets.MONGODB_URI }}
+            
+            # Google OAuth
+            GOOGLE_CLIENT_ID=${{ secrets.GOOGLE_CLIENT_ID }}
+            GOOGLE_CLIENT_SECRET=${{ secrets.GOOGLE_CLIENT_SECRET }}
+
+            
+            # NextAuth
+            NEXTAUTH_SECRET=${{ secrets.NEXTAUTH_SECRET }}
+            NEXTAUTH_URL=${{ secrets.NEXTAUTH_URL }}
+            
+            # Razorpay Payment
+            NEXT_PUBLIC_RAZORPAY_KEY_ID=${{ secrets.NEXT_PUBLIC_RAZORPAY_KEY_ID }}
+            RAZORPAY_KEY_SECRET=${{ secrets.RAZORPAY_KEY_SECRET }}
+            
+            # AI/LLM
+            OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }}
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY}}
+            
+            # Application
+            NEXT_PUBLIC_URL=${{ secrets.NEXT_PUBLIC_URL }}
+            NODE_ENV=production
+            NEXT_TELEMETRY_DISABLED=1
+            
+            # Email Configuration
+            EMAIL_HOST=${{ secrets.EMAIL_HOST }}
+            EMAIL_PORT=${{ secrets.EMAIL_PORT }}
+            EMAIL_USER=${{ secrets.EMAIL_USER }}
+            EMAIL_PASSWORD=${{ secrets.EMAIL_PASSWORD }}
+            EMAIL_FROM_NAME=${{ secrets.EMAIL_FROM_NAME }}
+            
+            # Twilio (SMS/Phone Authentication)
+            TWILIO_ACCOUNT_SID=${{ secrets.TWILIO_ACCOUNT_SID }}
+            TWILIO_AUTH_TOKEN=${{ secrets.TWILIO_AUTH_TOKEN }}
+            TWILIO_VERIFY_SERVICE_SID=${{ secrets.TWILIO_VERIFY_SERVICE_SID }}
+            
+            # Clerk Authentication
+            CLERK_SECRET_KEY=${{ secrets.CLERK_SECRET_KEY }}
+            EOF
+            chmod 600 .env.production
+            log_info "Environment configured securely"
+
+            # Step 5: Setup Node.js
+            echo ""
+            echo "Step 5: Setting up Node.js..."
+            if ! command -v node >/dev/null 2>&1; then
+              curl -fsSL https://rpm.nodesource.com/setup_20.x | sudo -E bash -
+              sudo dnf install -y nodejs
+            fi
+            NODE_VERSION=$(node -v)
+            log_info "Node.js: $NODE_VERSION"
+
+            # Step 6: Setup PM2
+            echo ""
+            echo "Step 6: Setting up PM2..."
+            if ! command -v pm2 >/dev/null 2>&1; then
+              sudo npm i -g pm2
+            fi
+            log_info "PM2 ready"
+
+            # Step 7: Cleanup old builds
+            echo ""
+            echo "Step 7: Cleaning up old builds..."
+            rm -rf node_modules .next out
+            log_info "Cleanup complete"
+
+            # Step 8: Install dependencies
+            echo ""
+            echo "Step 8: Installing production dependencies (5-8 min)..."
+            npm ci --prefer-offline --no-audit --legacy-peer-deps 2>&1 | tail -20
+            log_info "Dependencies installed"
+
+            # Step 9: Build application
+            echo ""
+            echo "Step 9: Building application (8-12 min)..."
+            export NODE_OPTIONS="--max-old-space-size=4096"
+            if ! npm run build 2>&1 | tail -50; then
+              log_error "Build failed"
+              if [ -d "$BACKUP_DIR/.next" ]; then
+                log_warn "Restoring from backup..."
+                cp -r "$BACKUP_DIR/.next" .
+                cp -r "$BACKUP_DIR/node_modules" .
+              fi
+              exit 1
+            fi
+            log_info "Build complete"
+
+            # Step 10: Stop old PM2 process
+            echo ""
+            echo "Step 10: Stopping old process..."
+            pm2 delete resume 2>/dev/null || true
+            sleep 1
+            log_info "Old process stopped"
+
+            # Step 11: Start new PM2 process
+            echo ""
+            echo "Step 11: Starting new process..."
+            pm2 start npm --name "resume" -- start
+            pm2 save
+            sleep 2
+            log_info "PM2 process started"
+
+            # Step 12: Health check
+            echo ""
+            echo "Step 12: Performing health checks..."
+            HEALTH_CHECK_RETRIES=5
+            HEALTH_CHECK_TIMEOUT=30
+            RETRY_COUNT=0
+            
+            while [ $RETRY_COUNT -lt $HEALTH_CHECK_RETRIES ]; do
+              if curl -sf http://localhost:8888 > /dev/null 2>&1; then
+                log_info "Health check passed"
+                break
+              fi
+              RETRY_COUNT=$((RETRY_COUNT + 1))
+              if [ $RETRY_COUNT -lt $HEALTH_CHECK_RETRIES ]; then
+                log_warn "Health check attempt $RETRY_COUNT/$HEALTH_CHECK_RETRIES failed, retrying in 5s..."
+                sleep 5
+              fi
+            done
+            
+            if [ $RETRY_COUNT -eq $HEALTH_CHECK_RETRIES ]; then
+              log_error "Health check failed after $HEALTH_CHECK_RETRIES attempts"
+              pm2 delete resume 2>/dev/null || true
+              if [ -d "$BACKUP_DIR/.next" ]; then
+                log_warn "Restoring from backup..."
+                cp -r "$BACKUP_DIR/.next" .
+                cp -r "$BACKUP_DIR/node_modules" .
+                pm2 start npm --name "resume" -- start
+                sleep 2
+              fi
+              exit 1
+            fi
+
+            # Step 13: Verify PM2 status
+            echo ""
+            echo "Step 13: Verifying PM2 status..."
+            pm2 status
+            log_info "PM2 status verified"
+
+            # Cleanup old backups (keep last 3)
+            echo ""
+            echo "Step 14: Cleaning up old backups..."
+            cd /home/ec2-user/apps
+            ls -td resume_backup_* 2>/dev/null | tail -n +4 | xargs -r rm -rf
+            log_info "Old backups cleaned"
+
+            echo ""
+            echo "======================================"
+            echo "🎉 Deployment successful!"
+            echo "======================================"
+            echo "Deployed at: $(date)"
+            echo "Application URL: ${{ secrets.NEXT_PUBLIC_URL }}"
+            echo ""
+            echo "Logs: pm2 logs resume"
+            echo "Status: pm2 status"
