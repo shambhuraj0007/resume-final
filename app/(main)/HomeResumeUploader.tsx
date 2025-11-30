@@ -140,7 +140,7 @@ function HomeResumeUploader() {
         description: "Please sign in to analyze your resume.",
         variant: "destructive",
       });
-      router.push("/signin");
+      router.push("/signin?callbackUrl=/ats-checker");
       return;
     }
 

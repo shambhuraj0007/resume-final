@@ -1,12 +1,12 @@
 {
-  "name": "ResumeAI",
+  "name": "ShortlistAI",
   "short_name": "ResumeAI",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#ffffff",
-  "description": "Build professional, ATS-friendly resumes effortlessly with ResumeAI.",
+  "description": "Build professional, ATS-friendly resumes effortlessly with ShortlistAI.",
   "icons": [
     {
       "src": "/favicon.ico",

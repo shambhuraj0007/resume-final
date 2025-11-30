@@ -329,7 +329,8 @@ export default function AuthCard() {
         setIsLoading(false);
       } else {
         setMsg({ success: "Signed in successfully. Redirecting..." });
-        setTimeout(() => router.push("/profile"), 1000);
+        const callbackUrl = searchParams.get("callbackUrl") || "/profile";
+        setTimeout(() => router.push(callbackUrl), 1000);
       }
     } catch (error) {
       console.error("Sign-in error:", error);
@@ -411,7 +412,14 @@ export default function AuthCard() {
       } else {
         setMsg({ success: data.message || "Account created successfully! Redirecting to sign in..." });
         setTimeout(() => {
+          const callbackUrl = searchParams.get("callbackUrl");
           setMode("signin");
+          // Update URL to reflect signin mode while keeping callbackUrl
+          const newUrl = callbackUrl 
+            ? `/signin?mode=signin&callbackUrl=${encodeURIComponent(callbackUrl)}`
+            : `/signin?mode=signin`;
+          router.push(newUrl);
+          
           setForm({ name: "", email: form.email, password: "", confirm: "" });
           setFieldErrors({});
           setTouchedFields({});
@@ -678,7 +686,13 @@ export default function AuthCard() {
             <button
               type="button"
               onClick={() => {
-                setMode(mode === "signup" ? "signin" : "signup");
+                const callbackUrl = searchParams.get("callbackUrl");
+                const newMode = mode === "signup" ? "signin" : "signup";
+                const newUrl = callbackUrl 
+                  ? `/signin?mode=${newMode}&callbackUrl=${encodeURIComponent(callbackUrl)}`
+                  : `/signin?mode=${newMode}`;
+                router.push(newUrl);
+                setMode(newMode);
                 setMsg({});
                 setForm({ name: "", email: "", password: "", confirm: "" });
                 setFieldErrors({});

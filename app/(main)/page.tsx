@@ -157,7 +157,7 @@ export default function HomePage() {
               Ready to Shine?
             </h2>
             <p className="text-gray-600 dark:text-gray-300 mb-3 leading-relaxed text-sm sm:text-base">
-              Join thousands who've built their perfect resume with ResumeAI.
+              Join thousands who've built their perfect resume with ShortListAI.
               Start now, no credit card needed.
             </p>
             <Link

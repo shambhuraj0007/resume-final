@@ -170,7 +170,7 @@ export default function UpgradeModal({ open, onOpenChange, onSuccess }: UpgradeM
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
         amount: orderData.amount,
         currency: orderData.currency,
-        name: 'ResumeAI',
+        name: 'ShortlistAI',
         description: `Purchase ${packages.find(p => p.id === packageId)?.name}`,
         order_id: orderData.orderId,
         redirect: false,

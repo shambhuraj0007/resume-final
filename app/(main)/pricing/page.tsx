@@ -64,19 +64,19 @@ export default function PricingPage() {
       if (!response.ok) throw new Error("Failed to fetch packages");
 
       const data = await response.json();
-      
+
       const mappedPackages = (data.packages || []).map((pkg: any) => {
-        const originalPrice = pkg.price * 2; 
+        const originalPrice = pkg.price * 2;
         const savePercentage = calculateDiscount(pkg.price, originalPrice);
 
         return {
           ...pkg,
           name: cleanPackageName(pkg.name), // Remove "Pack" from name
-          originalPrice, 
+          originalPrice,
           savePercentage,
         };
       });
-      
+
       setPackages(mappedPackages);
     } catch (error) {
       console.error("Error fetching packages:", error);
@@ -120,76 +120,76 @@ export default function PricingPage() {
         description: "Please sign in to purchase credits.",
         variant: "destructive",
       });
-      router.push("/signin");
+      router.push("/signin?callbackUrl=/pricing");
       return;
     }
 
     if (activeOrderRef.current) return;
     if (!scriptLoaded && (typeof window === "undefined" || !window.Razorpay)) {
-        await loadRazorpayScript();
-        return;
+      await loadRazorpayScript();
+      return;
     }
     if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-        toast({ title: "Configuration Error", description: "Payment system not configured.", variant: "destructive" });
-        return;
+      toast({ title: "Configuration Error", description: "Payment system not configured.", variant: "destructive" });
+      return;
     }
     setProcessingPackage(packageId);
     dismissHandledRef.current = false;
 
     try {
-        const orderResponse = await fetch("/api/payment/create-order", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ packageType: packageId }),
-        });
-        const orderData = await orderResponse.json();
-        if (!orderResponse.ok) throw new Error(orderData.error || "Failed to create order");
-        
-        activeOrderRef.current = orderData.orderId;
-        const selectedPackage = packages.find((p) => p.id === packageId);
-        
-        const options = {
-            key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-            amount: orderData.amount,
-            currency: orderData.currency,
-            name: "ShortlistAI",
-            description: selectedPackage ? `Buy ${selectedPackage.name}` : "Buy Credits",
-            order_id: orderData.orderId,
-            theme: { color: "#4f46e5" },
-            handler: async function (response: any) {
-                activeOrderRef.current = null;
-                dismissHandledRef.current = true;
-                try {
-                    const verifyResponse = await fetch("/api/payment/verify", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({
-                            razorpay_order_id: response.razorpay_order_id,
-                            razorpay_payment_id: response.razorpay_payment_id,
-                            razorpay_signature: response.razorpay_signature,
-                        }),
-                    });
-                    if (verifyResponse.ok) toast({ title: "Success", description: "Credits added." });
-                } finally {
-                    setProcessingPackage(null);
-                }
-            },
-            modal: {
-                ondismiss: function () {
-                    if (dismissHandledRef.current) return;
-                    dismissHandledRef.current = true;
-                    activeOrderRef.current = null;
-                    setProcessingPackage(null);
-                }
-            }
-        };
-        const razorpay = new window.Razorpay(options);
-        razorpayInstanceRef.current = razorpay;
-        razorpay.open();
+      const orderResponse = await fetch("/api/payment/create-order", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ packageType: packageId }),
+      });
+      const orderData = await orderResponse.json();
+      if (!orderResponse.ok) throw new Error(orderData.error || "Failed to create order");
+
+      activeOrderRef.current = orderData.orderId;
+      const selectedPackage = packages.find((p) => p.id === packageId);
+
+      const options = {
+        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
+        amount: orderData.amount,
+        currency: orderData.currency,
+        name: "ShortlistAI",
+        description: selectedPackage ? `Buy ${selectedPackage.name}` : "Buy Credits",
+        order_id: orderData.orderId,
+        theme: { color: "#4f46e5" },
+        handler: async function (response: any) {
+          activeOrderRef.current = null;
+          dismissHandledRef.current = true;
+          try {
+            const verifyResponse = await fetch("/api/payment/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            if (verifyResponse.ok) toast({ title: "Success", description: "Credits added." });
+          } finally {
+            setProcessingPackage(null);
+          }
+        },
+        modal: {
+          ondismiss: function () {
+            if (dismissHandledRef.current) return;
+            dismissHandledRef.current = true;
+            activeOrderRef.current = null;
+            setProcessingPackage(null);
+          }
+        }
+      };
+      const razorpay = new window.Razorpay(options);
+      razorpayInstanceRef.current = razorpay;
+      razorpay.open();
     } catch (error) {
-        activeOrderRef.current = null;
-        setProcessingPackage(null);
-        toast({ title: "Payment Failed", description: "Could not process payment.", variant: "destructive" });
+      activeOrderRef.current = null;
+      setProcessingPackage(null);
+      toast({ title: "Payment Failed", description: "Could not process payment.", variant: "destructive" });
     }
   }, [packages, scriptLoaded, loadRazorpayScript, toast]);
 
@@ -198,14 +198,14 @@ export default function PricingPage() {
     fetchPackages();
     loadRazorpayScript();
     return () => {
-        if (razorpayInstanceRef.current) try { razorpayInstanceRef.current.close(); } catch(e) {}
+      if (razorpayInstanceRef.current) try { razorpayInstanceRef.current.close(); } catch (e) { }
     };
   }, [fetchPackages, loadRazorpayScript]);
 
   return (
     <main className="min-h-screen bg-slate-50 dark:bg-slate-950 pt-12 pb-12 font-sans">
       <section className="max-w-7xl mx-auto px-4 sm:px-6">
-        
+
         <div className="text-center max-w-3xl mx-auto mb-8">
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">
             Flexible, pay-as-you-go pricing
@@ -214,7 +214,7 @@ export default function PricingPage() {
 
         {loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-             {[1, 2, 3, 4].map(i => <div key={i} className="h-[600px] rounded-[2rem] bg-white animate-pulse" />)}
+            {[1, 2, 3, 4].map(i => <div key={i} className="h-[600px] rounded-[2rem] bg-white animate-pulse" />)}
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
