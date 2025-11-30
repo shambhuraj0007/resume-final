@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import VerificationToken from '@/models/VerificationToken';
-import { sendPasswordResetEmail } from '@/lib/nodemailer';
+import { sendPasswordResetEmail } from '@/lib/email-service';
 import crypto from 'crypto';
 
 export async function POST(request: NextRequest) {

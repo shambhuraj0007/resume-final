@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import connectDB from '@/lib/mongodb';
 import User from '@/models/User';
 import VerificationToken from '@/models/VerificationToken';
-import { sendVerificationEmail } from '@/lib/nodemailer';
+import { sendVerificationEmail } from '@/lib/email-service';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
