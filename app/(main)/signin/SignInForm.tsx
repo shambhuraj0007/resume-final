@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
+import Link from "next/link";
 
 // Email validation regex (RFC 5322 simplified)
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -39,10 +40,10 @@ export default function AuthCard() {
     searchParams.get("mode") === "signup" ? "signup" : "signin"
   );
   const [msg, setMsg] = useState<{ error?: string; success?: string }>({});
-  
+
   // Email form state
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
-  
+
   // Field-specific error states for real-time validation
   const [fieldErrors, setFieldErrors] = useState<{
     name?: string;
@@ -54,7 +55,7 @@ export default function AuthCard() {
   // Password visibility states
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
+
   // Rate limiting
   const [attemptCount, setAttemptCount] = useState(0);
   const [lastAttemptTime, setLastAttemptTime] = useState<number>(0);
@@ -87,13 +88,12 @@ export default function AuthCard() {
       return { valid: false, error: "🤖 Oops! That email looks off. Try again?" };
     }
 
-
     if (normalized.length > 254) {
       return { valid: false, error: "Email address is too long" };
     }
 
     const domain = normalized.split('@')[1];
-    
+
     if (!domain || domain.length < 3) {
       return { valid: false, error: "Invalid email domain" };
     }
@@ -199,9 +199,9 @@ export default function AuthCard() {
 
     if (attemptCount >= 5) {
       const waitTime = Math.ceil((15 * 60 * 1000 - timeSinceLastAttempt) / 60000);
-      return { 
-        allowed: false, 
-        error: `Too many attempts. Please try again in ${waitTime} minute${waitTime !== 1 ? 's' : ''}` 
+      return {
+        allowed: false,
+        error: `Too many attempts. Please try again in ${waitTime} minute${waitTime !== 1 ? 's' : ''}`
       };
     }
 
@@ -213,19 +213,19 @@ export default function AuthCard() {
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setForm((s) => ({ ...s, [name]: value }));
-    
+
     // Clear field error when user starts typing again
     if (touchedFields[name as keyof typeof touchedFields]) {
       setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
     }
-    
+
     setMsg({});
   };
 
   // Handle blur events for real-time validation
   const handleBlur = (fieldName: keyof typeof form) => {
     setTouchedFields((prev) => ({ ...prev, [fieldName]: true }));
-    
+
     const value = form[fieldName];
     let validation: { valid: boolean; error?: string } = { valid: true };
 
@@ -299,9 +299,9 @@ export default function AuthCard() {
       }
 
       setIsLoading(true);
-      
+
       const normalizedEmail = form.email.trim().toLowerCase();
-      
+
       const res = await signIn("credentials", {
         email: normalizedEmail,
         password: form.password,
@@ -310,7 +310,7 @@ export default function AuthCard() {
 
       if (res?.error) {
         let errorMessage = "Invalid email or password";
-        
+
         if (res.error.toLowerCase().includes("verify your email")) {
           errorMessage = "Please verify your email before signing in. We've sent a verification link to your email address.";
         } else if (res.error.includes("credentials")) {
@@ -324,7 +324,7 @@ export default function AuthCard() {
         } else if (res.error.includes("timeout")) {
           errorMessage = "Request timed out. Please try again";
         }
-        
+
         setMsg({ error: errorMessage });
         setIsLoading(false);
       } else {
@@ -380,10 +380,10 @@ export default function AuthCard() {
       const r = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          name: normalizedName, 
-          email: normalizedEmail, 
-          password: form.password 
+        body: JSON.stringify({
+          name: normalizedName,
+          email: normalizedEmail,
+          password: form.password
         }),
       });
 
@@ -421,13 +421,13 @@ export default function AuthCard() {
       }
     } catch (error) {
       console.error("Registration error:", error);
-      
+
       if (error instanceof TypeError && error.message.includes("fetch")) {
         setMsg({ error: "Network error. Please check your internet connection" });
       } else {
         setMsg({ error: "An unexpected error occurred. Please try again later" });
       }
-      
+
       setIsLoading(false);
     }
   };
@@ -448,7 +448,7 @@ export default function AuthCard() {
         className="w-full max-w-md"
       >
         <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border border-gray-200 dark:border-gray-800 shadow-xl rounded-2xl p-8 space-y-6">
-          
+
           {/* Header */}
           <motion.div variants={fadeUp} initial="hidden" animate="show" className="text-center space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight">{title}</h1>
@@ -464,7 +464,7 @@ export default function AuthCard() {
               </Alert>
             </motion.div>
           )}
-          
+
           {msg.success && (
             <motion.div variants={fadeUp} initial="hidden" animate="show">
               <Alert className="bg-green-50 text-green-800 border-green-200 dark:bg-green-950 dark:text-green-200 dark:border-green-800">
@@ -484,10 +484,10 @@ export default function AuthCard() {
               whileTap={!isLoading ? { scale: 0.98 } : {}}
             >
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" className="w-5 h-5">
-                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"/>
-                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"/>
-                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"/>
-                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"/>
+                <path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z" />
+                <path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z" />
+                <path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z" />
+                <path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z" />
               </svg>
               Continue with Google
             </motion.button>
@@ -515,15 +515,15 @@ export default function AuthCard() {
             {mode === "signup" && (
               <div className="grid gap-2">
                 <Label htmlFor="name">Full name</Label>
-                <Input 
-                  id="name" 
-                  name="name" 
-                  type="text" 
-                  required 
-                  value={form.name} 
+                <Input
+                  id="name"
+                  name="name"
+                  type="text"
+                  required
+                  value={form.name}
                   onChange={onChange}
                   onBlur={() => handleBlur('name')}
-                  placeholder="John Doe" 
+                  placeholder="John Doe"
                   disabled={isLoading}
                   maxLength={100}
                   autoComplete="name"
@@ -541,15 +541,15 @@ export default function AuthCard() {
             {/* Email field */}
             <div className="grid gap-2">
               <Label htmlFor="email">Email address</Label>
-              <Input 
-                id="email" 
-                name="email" 
-                type="email" 
-                required 
-                value={form.email} 
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={form.email}
                 onChange={onChange}
                 onBlur={() => handleBlur('email')}
-                placeholder="you@example.com" 
+                placeholder="you@example.com"
                 disabled={isLoading}
                 autoComplete="email"
                 maxLength={254}
@@ -565,17 +565,28 @@ export default function AuthCard() {
 
             {/* Password field */}
             <div className="grid gap-2">
-              <Label htmlFor="password">Password</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                {/* Forgot password link - only on sign in */}
+                {mode === "signin" && (
+                  <Link
+                    href="/forgot-password"
+                    className="text-sm font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                  >
+                    Forgot password?
+                  </Link>
+                )}
+              </div>
               <div className="relative">
-                <Input 
-                  id="password" 
-                  name="password" 
+                <Input
+                  id="password"
+                  name="password"
                   type={showPassword ? "text" : "password"}
-                  required 
-                  value={form.password} 
+                  required
+                  value={form.password}
                   onChange={onChange}
                   onBlur={() => handleBlur('password')}
-                  placeholder="••••••••" 
+                  placeholder="••••••••"
                   disabled={isLoading}
                   autoComplete={mode === "signup" ? "new-password" : "current-password"}
                   minLength={8}
@@ -587,6 +598,7 @@ export default function AuthCard() {
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                   tabIndex={-1}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
                 >
                   {showPassword ? (
                     <EyeOff className="h-4 w-4" />
@@ -608,15 +620,15 @@ export default function AuthCard() {
               <div className="grid gap-2">
                 <Label htmlFor="confirm">Confirm password</Label>
                 <div className="relative">
-                  <Input 
-                    id="confirm" 
-                    name="confirm" 
+                  <Input
+                    id="confirm"
+                    name="confirm"
                     type={showConfirmPassword ? "text" : "password"}
-                    required 
-                    value={form.confirm} 
+                    required
+                    value={form.confirm}
                     onChange={onChange}
                     onBlur={() => handleBlur('confirm')}
-                    placeholder="••••••••" 
+                    placeholder="••••••••"
                     disabled={isLoading}
                     autoComplete="new-password"
                     minLength={8}
@@ -628,6 +640,7 @@ export default function AuthCard() {
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
                     tabIndex={-1}
+                    aria-label={showConfirmPassword ? "Hide password" : "Show password"}
                   >
                     {showConfirmPassword ? (
                       <EyeOff className="h-4 w-4" />
@@ -647,7 +660,7 @@ export default function AuthCard() {
 
             {/* Submit button */}
             <motion.div whileHover={!isLoading ? { y: -1 } : {}} whileTap={!isLoading ? { scale: 0.98 } : {}}>
-              <Button type="submit" disabled={isLoading} className="w-full py-6">
+              <Button type="submit" disabled={isLoading} className="w-full py-6 mt-2">
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -674,7 +687,7 @@ export default function AuthCard() {
                 setShowConfirmPassword(false);
               }}
               disabled={isLoading}
-              className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               {mode === "signup" ? "Already have an account? Sign in" : "Don't have an account? Sign up"}
             </button>
@@ -682,7 +695,14 @@ export default function AuthCard() {
 
           {/* Terms and Privacy */}
           <p className="text-center text-xs text-gray-500 dark:text-gray-400">
-            By continuing, you agree to our Terms of Service and Privacy Policy
+            By continuing, you agree to our{" "}
+            <Link href="/terms" className="underline hover:text-gray-700 dark:hover:text-gray-300">
+              Terms of Service
+            </Link>
+            {" "}and{" "}
+            <Link href="/privacy" className="underline hover:text-gray-700 dark:hover:text-gray-300">
+              Privacy Policy
+            </Link>
           </p>
         </div>
       </motion.div>

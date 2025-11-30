@@ -108,8 +108,8 @@ export default function JobMatchPage() {
       try {
         const payload = JSON.parse(pendingAnalysisStr);
 
-        // Check if it's recent (within last 10 seconds)
-        if (Date.now() - payload.timestamp < 10000 && payload.autoStart) {
+        // Check if it's recent (within last 5 minutes)
+        if (Date.now() - payload.timestamp < 300000 && payload.autoStart) {
           sessionStorage.removeItem("pendingAnalysis");
 
           // Restore the form state
