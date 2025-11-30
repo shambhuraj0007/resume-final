@@ -6,6 +6,12 @@ import { MinimalTemplate } from '@/components/resume/templates/Minimal';
 import { ProfessionalTemplate } from '@/components/resume/templates/Professional';
 import { OldModernTemplate } from '@/components/resume/templates/Modern-old';
 import { CreativeTemplate } from '@/components/resume/templates/CreativeTemplate';
+import { DM_Sans, Roboto, Lato, Open_Sans } from 'next/font/google';
+
+const dmSans = DM_Sans({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-dm-sans', display: 'swap' });
+const roboto = Roboto({ subsets: ['latin'], weight: ['400', '500', '700'], variable: '--font-roboto', display: 'swap' });
+const lato = Lato({ subsets: ['latin'], weight: ['400', '700'], variable: '--font-lato', display: 'swap' });
+const openSans = Open_Sans({ subsets: ['latin'], weight: ['400', '600', '700'], variable: '--font-open-sans', display: 'swap' });
 
 const TEMPLATES = {
   modern: ModernTemplate,
@@ -64,7 +70,7 @@ const DownloadPage = () => {
   if (!resumeData || !selectedTemplate) {
     return <div>Loading...</div>;
   }
-  
+
   const TemplateComponent = TEMPLATES[selectedTemplate];
   const mergedResumeData = {
     ...resumeData,
@@ -76,7 +82,15 @@ const DownloadPage = () => {
 
   return (
     <>
-      <div 
+      {/* Font loaders to ensure they are active */}
+      <div className={`${dmSans.variable} ${roboto.variable} ${lato.variable} ${openSans.variable}`} style={{ display: 'none' }} />
+
+      {/* Backup Google Fonts Link */}
+      <link rel="preconnect" href="https://fonts.googleapis.com" />
+      <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+      <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;500;700&family=Lato:wght@400;700&family=Open+Sans:wght@400;600;700&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet" />
+
+      <div
         id="resume-content"
         style={{
           fontFamily: fontFamily || 'DM Sans',
@@ -91,7 +105,7 @@ const DownloadPage = () => {
         <TemplateComponent
           resumeData={mergedResumeData}
           isEditing={false}
-          updateField={() => {}}
+          updateField={() => { }}
         />
       </div>
 

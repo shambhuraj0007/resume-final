@@ -10,7 +10,7 @@ import { Analytics } from "@vercel/analytics/react"
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  preload: true,
+  variable: '--font-inter',
 })
 
 // 1. Viewport Export
@@ -172,7 +172,7 @@ export default async function RootLayout({
   const session = await getServerSession(authOptions);
 
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Critical Performance Optimization */}
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -183,7 +183,7 @@ export default async function RootLayout({
         <link rel="dns-prefetch" href="https://checkout.razorpay.com" />
         <link rel="manifest" href="/manifest.json" />
       </head>
-      <body className={inter.className}>
+      <body>
         <SessionProvider session={session}>
           <ThemeWrapper>
             {children}

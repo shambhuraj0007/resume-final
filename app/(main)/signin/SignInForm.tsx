@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, AlertCircle, CheckCircle2, Eye, EyeOff } from "lucide-react";
 
 // Email validation regex (RFC 5322 simplified)
 const EMAIL_REGEX = /^[a-zA-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
@@ -43,9 +43,29 @@ export default function AuthCard() {
   // Email form state
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
   
+  // Field-specific error states for real-time validation
+  const [fieldErrors, setFieldErrors] = useState<{
+    name?: string;
+    email?: string;
+    password?: string;
+    confirm?: string;
+  }>({});
+
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
   // Rate limiting
   const [attemptCount, setAttemptCount] = useState(0);
   const [lastAttemptTime, setLastAttemptTime] = useState<number>(0);
+
+  // Track which fields have been touched
+  const [touchedFields, setTouchedFields] = useState<{
+    name?: boolean;
+    email?: boolean;
+    password?: boolean;
+    confirm?: boolean;
+  }>({});
 
   // Comprehensive email validation
   const validateEmail = (email: string): { valid: boolean; error?: string } => {
@@ -59,13 +79,14 @@ export default function AuthCard() {
       return { valid: false, error: "Email cannot have leading or trailing spaces" };
     }
 
-    if (email.includes('  ')) {
+    else if (email.includes('  ')) {
       return { valid: false, error: "Email cannot contain consecutive spaces" };
     }
 
-    if (!EMAIL_REGEX.test(normalized)) {
-      return { valid: false, error: "Please enter a valid email address" };
+    else if (!EMAIL_REGEX.test(normalized)) {
+      return { valid: false, error: "🤖 Oops! That email looks off. Try again?" };
     }
+
 
     if (normalized.length > 254) {
       return { valid: false, error: "Email address is too long" };
@@ -77,9 +98,9 @@ export default function AuthCard() {
       return { valid: false, error: "Invalid email domain" };
     }
 
-    if (DISPOSABLE_DOMAINS.some(d => domain.includes(d))) {
-      return { valid: false, error: "Temporary email addresses are not allowed" };
-    }
+    // if (DISPOSABLE_DOMAINS.some(d => domain.includes(d))) {
+    //   return { valid: false, error: "Temporary email addresses are not allowed" };
+    // }
 
     const typoSuggestions: { [key: string]: string } = {
       'gmial.com': 'gmail.com',
@@ -190,8 +211,52 @@ export default function AuthCard() {
   };
 
   const onChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setForm((s) => ({ ...s, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setForm((s) => ({ ...s, [name]: value }));
+    
+    // Clear field error when user starts typing again
+    if (touchedFields[name as keyof typeof touchedFields]) {
+      setFieldErrors((prev) => ({ ...prev, [name]: undefined }));
+    }
+    
     setMsg({});
+  };
+
+  // Handle blur events for real-time validation
+  const handleBlur = (fieldName: keyof typeof form) => {
+    setTouchedFields((prev) => ({ ...prev, [fieldName]: true }));
+    
+    const value = form[fieldName];
+    let validation: { valid: boolean; error?: string } = { valid: true };
+
+    switch (fieldName) {
+      case 'name':
+        if (mode === 'signup') {
+          validation = validateName(value);
+        }
+        break;
+      case 'email':
+        validation = validateEmail(value);
+        break;
+      case 'password':
+        validation = validatePassword(value);
+        break;
+      case 'confirm':
+        if (mode === 'signup') {
+          if (!value) {
+            validation = { valid: false, error: "Please confirm your password" };
+          } else if (value !== form.password) {
+            validation = { valid: false, error: "Passwords do not match" };
+          }
+        }
+        break;
+    }
+
+    if (!validation.valid) {
+      setFieldErrors((prev) => ({ ...prev, [fieldName]: validation.error }));
+    } else {
+      setFieldErrors((prev) => ({ ...prev, [fieldName]: undefined }));
+    }
   };
 
   const onGoogle = async () => {
@@ -348,6 +413,8 @@ export default function AuthCard() {
         setTimeout(() => {
           setMode("signin");
           setForm({ name: "", email: form.email, password: "", confirm: "" });
+          setFieldErrors({});
+          setTouchedFields({});
           setMsg({});
         }, 2000);
         setIsLoading(false);
@@ -454,12 +521,20 @@ export default function AuthCard() {
                   type="text" 
                   required 
                   value={form.name} 
-                  onChange={onChange} 
+                  onChange={onChange}
+                  onBlur={() => handleBlur('name')}
                   placeholder="John Doe" 
                   disabled={isLoading}
                   maxLength={100}
                   autoComplete="name"
+                  className={fieldErrors.name ? "border-red-500 focus-visible:ring-red-500" : ""}
                 />
+                {fieldErrors.name && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {fieldErrors.name}
+                  </p>
+                )}
               </div>
             )}
 
@@ -472,49 +547,101 @@ export default function AuthCard() {
                 type="email" 
                 required 
                 value={form.email} 
-                onChange={onChange} 
+                onChange={onChange}
+                onBlur={() => handleBlur('email')}
                 placeholder="you@example.com" 
                 disabled={isLoading}
                 autoComplete="email"
                 maxLength={254}
+                className={fieldErrors.email ? "border-red-500 focus-visible:ring-red-500" : ""}
               />
+              {fieldErrors.email && (
+                <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {fieldErrors.email}
+                </p>
+              )}
             </div>
 
             {/* Password field */}
             <div className="grid gap-2">
               <Label htmlFor="password">Password</Label>
-              <Input 
-                id="password" 
-                name="password" 
-                type="password" 
-                required 
-                value={form.password} 
-                onChange={onChange} 
-                placeholder="••••••••" 
-                disabled={isLoading}
-                autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                minLength={8}
-                maxLength={128}
-              />
+              <div className="relative">
+                <Input 
+                  id="password" 
+                  name="password" 
+                  type={showPassword ? "text" : "password"}
+                  required 
+                  value={form.password} 
+                  onChange={onChange}
+                  onBlur={() => handleBlur('password')}
+                  placeholder="••••••••" 
+                  disabled={isLoading}
+                  autoComplete={mode === "signup" ? "new-password" : "current-password"}
+                  minLength={8}
+                  maxLength={128}
+                  className={`pr-10 ${fieldErrors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                  tabIndex={-1}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </button>
+              </div>
+              {fieldErrors.password && (
+                <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                  <AlertCircle className="h-3 w-3" />
+                  {fieldErrors.password}
+                </p>
+              )}
             </div>
 
             {/* Confirm password (signup only) */}
             {mode === "signup" && (
               <div className="grid gap-2">
                 <Label htmlFor="confirm">Confirm password</Label>
-                <Input 
-                  id="confirm" 
-                  name="confirm" 
-                  type="password" 
-                  required 
-                  value={form.confirm} 
-                  onChange={onChange} 
-                  placeholder="••••••••" 
-                  disabled={isLoading}
-                  autoComplete="new-password"
-                  minLength={8}
-                  maxLength={128}
-                />
+                <div className="relative">
+                  <Input 
+                    id="confirm" 
+                    name="confirm" 
+                    type={showConfirmPassword ? "text" : "password"}
+                    required 
+                    value={form.confirm} 
+                    onChange={onChange}
+                    onBlur={() => handleBlur('confirm')}
+                    placeholder="••••••••" 
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                    minLength={8}
+                    maxLength={128}
+                    className={`pr-10 ${fieldErrors.confirm ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+                    tabIndex={-1}
+                  >
+                    {showConfirmPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {fieldErrors.confirm && (
+                  <p className="text-sm text-red-600 dark:text-red-400 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" />
+                    {fieldErrors.confirm}
+                  </p>
+                )}
               </div>
             )}
 
@@ -541,6 +668,10 @@ export default function AuthCard() {
                 setMode(mode === "signup" ? "signin" : "signup");
                 setMsg({});
                 setForm({ name: "", email: "", password: "", confirm: "" });
+                setFieldErrors({});
+                setTouchedFields({});
+                setShowPassword(false);
+                setShowConfirmPassword(false);
               }}
               disabled={isLoading}
               className="text-blue-600 hover:text-blue-500 dark:text-blue-400 dark:hover:text-blue-300 font-medium disabled:opacity-50 disabled:cursor-not-allowed"

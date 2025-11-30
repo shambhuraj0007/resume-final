@@ -107,7 +107,7 @@ export function ModernTemplate({ resumeData, isEditing, updateField }: TemplateP
   }, []);
 
   return (
-    <div className="w-full max-w-[8.5in] mx-auto bg-white" style={{ fontFamily: 'Arial, sans-serif', fontSize: '11pt' }}>
+    <div className="w-full max-w-[8.5in] mx-auto bg-white" style={{ fontFamily: 'var(--font-inter), Arial, sans-serif', fontSize: '11pt' }}>
       {/* Header Section */}
       <div className="bg-gray-900 text-white px-8 py-5 break-inside-avoid">
         <h1 className="text-3xl font-bold mb-1.5 tracking-tight">
