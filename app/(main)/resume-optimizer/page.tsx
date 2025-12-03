@@ -381,7 +381,7 @@ export default function ResumeOptimizerPage() {
         description: "Please sign in to optimize your resume.",
         variant: "destructive",
       });
-      router.push("/signin");
+      router.push(`/signin?callbackUrl=${encodeURIComponent(window.location.href)}`);
       return;
     }
 
@@ -571,7 +571,7 @@ export default function ResumeOptimizerPage() {
         description: "Please sign in to save your resume.",
         variant: "destructive",
       });
-      router.push('/signin');
+      router.push(`/signin?callbackUrl=${encodeURIComponent(window.location.href)}`);
       return;
     }
 

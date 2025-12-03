@@ -200,71 +200,123 @@ export default function JobMatchPage() {
     }
   };
 
-  // Auto-start analysis if coming from homepage
+  // Save draft on changes
   useEffect(() => {
-    const pendingAnalysisStr = sessionStorage.getItem("pendingAnalysis");
+    const saveDraft = async () => {
+      const fileToStore = pdfFile
+        ? {
+          name: pdfFile.name,
+          type: pdfFile.type,
+          dataUrl: await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(pdfFile);
+          }),
+        }
+        : null;
 
-    if (pendingAnalysisStr) {
-      try {
-        const payload = JSON.parse(pendingAnalysisStr);
+      const draft = {
+        resumeData: resumeText,
+        resumeFile: fileToStore,
+        jobDescription,
+        inputMode,
+        timestamp: Date.now(),
+      };
+      sessionStorage.setItem("atsCheckerDraft", JSON.stringify(draft));
+    };
 
-        // Check if it's recent (within last 5 minutes)
-        if (Date.now() - payload.timestamp < 300000 && payload.autoStart) {
-          sessionStorage.removeItem("pendingAnalysis");
+    const timeoutId = setTimeout(saveDraft, 1000); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [resumeText, jobDescription, inputMode, pdfFile]);
 
-          // Restore the form state
-          if (typeof payload.resumeData === "string") {
-            setInputMode("paste");
-            setResumeText(payload.resumeData);
-            validateResumeContent(payload.resumeData);
-          } else if (payload.resumeFile) {
-            setInputMode("upload");
-            fetch(payload.resumeFile.dataUrl)
-              .then((res) => res.blob())
-              .then((blob) => {
-                const file = new File([blob], payload.resumeFile.name, {
-                  type: payload.resumeFile.type,
-                });
-                setPdfFile(file);
-                handleFileValidation(file);
-              });
-          }
+  // Restore state on mount
+  useEffect(() => {
+    const initializeState = async () => {
+      const pendingAnalysisStr = sessionStorage.getItem("pendingAnalysis");
+      const draftStr = sessionStorage.getItem("atsCheckerDraft");
 
-          setJobDescription(payload.jobDescription);
-          validateJDContent(payload.jobDescription);
+      if (pendingAnalysisStr) {
+        try {
+          const payload = JSON.parse(pendingAnalysisStr);
+          // Check if it's recent (within last 5 minutes)
+          if (Date.now() - payload.timestamp < 300000) {
+            sessionStorage.removeItem("pendingAnalysis");
 
-          setTimeout(async () => {
-            const formData = new FormData();
-
+            // Restore inputs
             if (typeof payload.resumeData === "string") {
-              const blob = new Blob([payload.resumeData], {
-                type: "text/plain",
-              });
-              const textFile = new File([blob], "resume.txt", {
-                type: "text/plain",
-              });
-              formData.append("resume", textFile);
+              setInputMode("paste");
+              setResumeText(payload.resumeData);
+              validateResumeContent(payload.resumeData);
             } else if (payload.resumeFile) {
+              setInputMode("upload");
               const res = await fetch(payload.resumeFile.dataUrl);
               const blob = await res.blob();
-              const file = new File([blob], payload.resumeFile.name, {
-                type: payload.resumeFile.type,
-              });
-              formData.append("resume", file);
+              const file = new File([blob], payload.resumeFile.name, { type: payload.resumeFile.type });
+              setPdfFile(file);
+              handleFileValidation(file);
             }
 
-            formData.append("jobDescription", payload.jobDescription);
+            setJobDescription(payload.jobDescription);
+            validateJDContent(payload.jobDescription);
 
-            await startAnalysis(formData, () => {
-              refreshBalance();
-            });
-          }, 50);
+            // Auto-start if requested
+            if (payload.autoStart) {
+              setTimeout(async () => {
+                const formData = new FormData();
+                if (typeof payload.resumeData === "string") {
+                  const blob = new Blob([payload.resumeData], { type: "text/plain" });
+                  const textFile = new File([blob], "resume.txt", { type: "text/plain" });
+                  formData.append("resume", textFile);
+                } else if (payload.resumeFile) {
+                  const res = await fetch(payload.resumeFile.dataUrl);
+                  const blob = await res.blob();
+                  const file = new File([blob], payload.resumeFile.name, { type: payload.resumeFile.type });
+                  formData.append("resume", file);
+                }
+                formData.append("jobDescription", payload.jobDescription);
+                await startAnalysis(formData, () => refreshBalance());
+              }, 50);
+            }
+            return; // Stop here if pending analysis was handled
+          }
+        } catch (e) {
+          sessionStorage.removeItem("pendingAnalysis");
         }
-      } catch (error) {
-        // console.error("Error loading pending analysis:", error);
-        sessionStorage.removeItem("pendingAnalysis");
       }
-    }
+
+      // If no pending analysis, check for draft
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr);
+          // Check if draft is recent (e.g., 24 hours)
+          if (Date.now() - draft.timestamp < 86400000) {
+            if (draft.inputMode) setInputMode(draft.inputMode);
+
+            if (draft.resumeData) {
+              setResumeText(draft.resumeData);
+              validateResumeContent(draft.resumeData);
+            }
+
+            if (draft.resumeFile) {
+              const res = await fetch(draft.resumeFile.dataUrl);
+              const blob = await res.blob();
+              const file = new File([blob], draft.resumeFile.name, { type: draft.resumeFile.type });
+              setPdfFile(file);
+              handleFileValidation(file);
+            }
+
+            if (draft.jobDescription) {
+              setJobDescription(draft.jobDescription);
+              validateJDContent(draft.jobDescription);
+            }
+          }
+        } catch (e) {
+          // console.error("Error loading draft:", e);
+        }
+      }
+    };
+
+    initializeState();
   }, []);
 
   useEffect(() => {
@@ -427,12 +479,37 @@ export default function JobMatchPage() {
 
     // Auth Check
     if (status === "unauthenticated") {
+      // Save current state before redirecting
+      const fileToStore = pdfFile
+        ? {
+          name: pdfFile.name,
+          type: pdfFile.type,
+          dataUrl: await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(pdfFile);
+          }),
+        }
+        : null;
+
+      const resumeData = inputMode === "paste" ? resumeText : null;
+
+      const payload = {
+        resumeData,
+        resumeFile: fileToStore,
+        jobDescription: jobDescription.trim(),
+        autoStart: false, // Don't auto-start, just restore state
+        timestamp: Date.now(),
+      };
+
+      sessionStorage.setItem("pendingAnalysis", JSON.stringify(payload));
+
       toast({
         title: "Sign In Required",
         description: "Please sign in to analyze your resume.",
         variant: "destructive",
       });
-      router.push("/signin");
+      router.push(`/signin?callbackUrl=${encodeURIComponent(window.location.href)}`);
       return;
     }
 
