@@ -19,15 +19,15 @@ export async function POST(req: NextRequest) {
     const pdfData = await pdfParse(pdfBuffer);
     const text = pdfData.text;
 
-    // Validate Resume
-    const { isValidResume } = await import("@/lib/resume-validation");
-    const validationResult = isValidResume(text, pdfData.numpages);
+    // Validate Resume (Heuristic)
+    const { validateResumeText } = await import("@/lib/documentValidators");
+    const validationResult = validateResumeText(text);
 
     if (!validationResult.isValid) {
       return NextResponse.json(
         {
           error: validationResult.reason,
-          details: validationResult.details
+          code: validationResult.code
         },
         { status: 400 }
       );

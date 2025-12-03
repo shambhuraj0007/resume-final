@@ -238,7 +238,7 @@ export default function ResumeView({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${resumeData.personalDetails.fullName}'s Resume - Made Using ResumeItNow.pdf`;
+      a.download = `${resumeData.personalDetails.fullName}'s Resume - Made Using ShortlistAI.pdf`;
       a.click();
       window.URL.revokeObjectURL(url);
 
@@ -532,7 +532,7 @@ export default function ResumeView({
           style={{
             fontFamily: fontFamily || 'DM Sans',
             width: '21cm',
-            minHeight: '29.7cm',
+            minHeight: 'auto',
             background: 'white',
             margin: '0.5cm auto',
             padding: '1.5cm 2cm',
@@ -547,10 +547,10 @@ export default function ResumeView({
                 <p className="text-sm text-slate-600">Generating PDF preview...</p>
               </div>
             ) : (
-              <div className="w-full h-[29.7cm] bg-white rounded-lg overflow-hidden border-0">
+              <div className="w-full min-h-[29.7cm] bg-white rounded-lg overflow-hidden border-0">
                 <iframe
                   src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
-                  className="w-full h-full border-0"
+                  className="w-full h-[calc(100vh-200px)] min-h-[29.7cm] border-0"
                   title="PDF Preview"
                   style={{
                     border: 'none',
@@ -598,8 +598,8 @@ export default function ResumeView({
                           {...provided.draggableProps}
                           ref={provided.innerRef}
                           className={`flex items-center justify-between p-3 border rounded-lg shadow-sm transition-all ${snapshot.isDragging
-                              ? 'shadow-lg border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-950/30'
-                              : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800'
+                            ? 'shadow-lg border-purple-400 dark:border-purple-600 bg-purple-50 dark:bg-purple-950/30'
+                            : 'border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-800'
                             }`}
                           layout
                           transition={{ duration: 0.2 }}
@@ -678,7 +678,7 @@ export default function ResumeView({
 
         .resume-preview {
           width: 21cm;
-          min-height: 29.7cm;
+          min-height: auto;
           background: white;
           box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
           margin: 0.5cm auto 2rem;
@@ -691,37 +691,7 @@ export default function ResumeView({
 
         @media screen {
           .resume-preview {
-            background-image: 
-              linear-gradient(to bottom, 
-                transparent 0, 
-                transparent calc(29.7cm - 1.5cm - 2px),
-                rgba(239, 68, 68, 0.3) calc(29.7cm - 1.5cm - 2px), 
-                rgba(239, 68, 68, 0.6) calc(29.7cm - 1.5cm - 1px),
-                rgba(220, 38, 38, 0.8) calc(29.7cm - 1.5cm),
-                rgba(239, 68, 68, 0.6) calc(29.7cm - 1.5cm + 1px),
-                rgba(239, 68, 68, 0.3) calc(29.7cm - 1.5cm + 2px),
-                transparent calc(29.7cm - 1.5cm + 2px)
-              );
-            background-repeat: repeat-y;
-          }
-
-          .resume-preview::after {
-            content: '';
-            position: absolute;
-            top: calc(29.7cm - 1.5cm - 12px);
-            left: 50%;
-            transform: translateX(-50%);
-            background: linear-gradient(135deg, #dc2626, #ef4444);
-            color: white;
-            padding: 4px 12px;
-            border-radius: 12px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.3px;
-            box-shadow: 0 2px 8px rgba(220, 38, 38, 0.4);
-            z-index: 100;
-            pointer-events: none;
-            white-space: nowrap;
+            /* Red line and page indicator removed for cleaner preview */
           }
 
           .work-item, .education-item, .project-item {
@@ -764,7 +734,7 @@ export default function ResumeView({
             background-image: none !important;
             margin: 0 !important;
             width: 21cm !important;
-            min-height: 29.7cm !important;
+            min-height: auto !important;
             padding: 0 !important;
           }
 

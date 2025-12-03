@@ -57,9 +57,9 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         }
         if (type === 'mail') {
           return (
-            <a 
-              href={`mailto:${value}`} 
-              className={`text-gray-700 hover:text-[#1e40af] transition-colors ${className}`} 
+            <a
+              href={`mailto:${value}`}
+              className={`text-gray-700 hover:text-[#1e40af] transition-colors ${className}`}
               aria-label={ariaLabel}
             >
               {value}
@@ -68,9 +68,9 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         }
         if (type === 'phone') {
           return (
-            <a 
-              href={`tel:${value}`} 
-              className={`text-gray-700 hover:text-[#1e40af] transition-colors ${className}`} 
+            <a
+              href={`tel:${value}`}
+              className={`text-gray-700 hover:text-[#1e40af] transition-colors ${className}`}
               aria-label={ariaLabel}
             >
               {value}
@@ -160,7 +160,7 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         /* Screen view - simulate pages */
         @media screen {
           .resume-page {
-            min-height: 11in;
+            min-height: auto;
             box-shadow: 0 2px 8px rgba(0,0,0,0.1);
             margin-bottom: 20px;
             background: white;
@@ -172,9 +172,9 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         }
       `}</style>
 
-      <div 
-        className="resume-page w-full max-w-[8.5in] mx-auto bg-white px-12 py-10" 
-        style={{ 
+      <div
+        className="resume-page w-full max-w-[8.5in] mx-auto bg-white px-12 py-10"
+        style={{
           fontFamily: 'Arial, sans-serif',
           fontSize: '11pt',
           lineHeight: '1.15'
@@ -198,7 +198,7 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
               ariaLabel: 'Job title',
             })}
           </div>
-          
+
           {/* Contact Information */}
           <div className="text-[10.5pt] text-gray-700 flex flex-wrap gap-x-4 gap-y-1">
             {resumeData.personalDetails.email && (
@@ -280,8 +280,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.objective) && (
           <section aria-labelledby="summary" className="mb-5">
             <div className="flex items-center gap-3 mb-2">
-              <h2 
-                id="summary" 
+              <h2
+                id="summary"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Professional Summary
@@ -305,8 +305,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.workExperience) && (
           <section aria-labelledby="experience" className="mb-5">
             <div className="flex items-center gap-3 mb-3">
-              <h2 
-                id="experience" 
+              <h2
+                id="experience"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Work Experience
@@ -380,8 +380,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.education) && (
           <section aria-labelledby="education" className="mb-5">
             <div className="flex items-center gap-3 mb-3">
-              <h2 
-                id="education" 
+              <h2
+                id="education"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Education
@@ -456,8 +456,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.projects) && (
           <section aria-labelledby="projects" className="mb-5">
             <div className="flex items-center gap-3 mb-3">
-              <h2 
-                id="projects" 
+              <h2
+                id="projects"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Projects
@@ -508,8 +508,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.skills) && (
           <section aria-labelledby="skills" className="mb-5">
             <div className="flex items-center gap-3 mb-3">
-              <h2 
-                id="skills" 
+              <h2
+                id="skills"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Skills
@@ -560,8 +560,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.certifications) && (
           <section aria-labelledby="certifications" className="mb-5">
             <div className="flex items-center gap-3 mb-3">
-              <h2 
-                id="certifications" 
+              <h2
+                id="certifications"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Certifications
@@ -608,8 +608,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
         {hasContent(resumeData.languages) && (
           <section aria-labelledby="languages" className="mb-5">
             <div className="flex items-center gap-3 mb-3">
-              <h2 
-                id="languages" 
+              <h2
+                id="languages"
                 className="text-[14pt] font-bold text-[#1e40af] uppercase tracking-wide whitespace-nowrap"
               >
                 Languages

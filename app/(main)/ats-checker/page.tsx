@@ -100,6 +100,106 @@ export default function JobMatchPage() {
   const { balance, checkCredits, refreshBalance } = useCredits();
   const { isAnalyzing, result, startAnalysis, clearResult } = useAnalysis();
 
+  // Validation State
+  const [isResumeValid, setIsResumeValid] = useState(false);
+  const [resumeValidationError, setResumeValidationError] = useState<string | null>(null);
+  const [isJDValid, setIsJDValid] = useState(false);
+  const [jdValidationError, setJdValidationError] = useState<string | null>(null);
+  const [isValidatingResume, setIsValidatingResume] = useState(false);
+  const [isValidatingJD, setIsValidatingJD] = useState(false);
+
+  // Validation Helpers
+  const validateResumeContent = async (text: string) => {
+    if (!text.trim()) {
+      setIsResumeValid(false);
+      setResumeValidationError(null);
+      return;
+    }
+
+    setIsValidatingResume(true);
+    try {
+      const resp = await fetch("/api/validate-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        setResumeValidationError(data.reason || "Invalid resume content.");
+        setIsResumeValid(false);
+      } else {
+        setResumeValidationError(null);
+        setIsResumeValid(true);
+      }
+    } catch (e) {
+      setResumeValidationError("Validation failed. Please try again.");
+      setIsResumeValid(false);
+    } finally {
+      setIsValidatingResume(false);
+    }
+  };
+
+  const validateJDContent = async (text: string) => {
+    if (!text.trim()) {
+      setIsJDValid(false);
+      setJdValidationError(null);
+      return;
+    }
+
+    setIsValidatingJD(true);
+    try {
+      const resp = await fetch("/api/validate-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        setJdValidationError(data.reason || "Invalid job description.");
+        setIsJDValid(false);
+      } else {
+        setJdValidationError(null);
+        setIsJDValid(true);
+      }
+    } catch (e) {
+      setJdValidationError("Validation failed. Please try again.");
+      setIsJDValid(false);
+    } finally {
+      setIsValidatingJD(false);
+    }
+  };
+
+  const handleFileValidation = async (file: File) => {
+    setIsValidatingResume(true);
+    setResumeValidationError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/extract-pdf-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await validateResumeContent(data.text);
+      } else {
+        const errorData = await response.json();
+        setResumeValidationError(errorData.error || "Failed to extract text from PDF");
+        setIsResumeValid(false);
+        setIsValidatingResume(false);
+      }
+    } catch (error) {
+      setResumeValidationError("Failed to process PDF. Please try again.");
+      setIsResumeValid(false);
+      setIsValidatingResume(false);
+    }
+  };
+
   // Auto-start analysis if coming from homepage
   useEffect(() => {
     const pendingAnalysisStr = sessionStorage.getItem("pendingAnalysis");
@@ -116,6 +216,7 @@ export default function JobMatchPage() {
           if (typeof payload.resumeData === "string") {
             setInputMode("paste");
             setResumeText(payload.resumeData);
+            validateResumeContent(payload.resumeData);
           } else if (payload.resumeFile) {
             setInputMode("upload");
             fetch(payload.resumeFile.dataUrl)
@@ -125,10 +226,12 @@ export default function JobMatchPage() {
                   type: payload.resumeFile.type,
                 });
                 setPdfFile(file);
+                handleFileValidation(file);
               });
           }
 
           setJobDescription(payload.jobDescription);
+          validateJDContent(payload.jobDescription);
 
           setTimeout(async () => {
             const formData = new FormData();
@@ -211,6 +314,7 @@ export default function JobMatchPage() {
     if (file && validateFile(file)) {
       setPdfFile(file);
       setResumeText("");
+      handleFileValidation(file); // Trigger validation
       if (result) {
         clearResult();
         toast({
@@ -232,6 +336,7 @@ export default function JobMatchPage() {
     if (file && validateFile(file)) {
       setPdfFile(file);
       setResumeText("");
+      handleFileValidation(file); // Trigger validation
       if (result) {
         clearResult();
         toast({
@@ -250,6 +355,10 @@ export default function JobMatchPage() {
   const toggleInputMode = () => {
     const newMode = inputMode === "upload" ? "paste" : "upload";
     setInputMode(newMode);
+
+    // Clear validation state
+    setIsResumeValid(false);
+    setResumeValidationError(null);
 
     if (result) {
       clearResult();
@@ -292,6 +401,25 @@ export default function JobMatchPage() {
         title: "Missing Job Description",
         description:
           "Please paste the job description to analyze compatibility.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validation Checks
+    if (!isResumeValid) {
+      toast({
+        title: "Invalid Resume",
+        description: resumeValidationError || "Please provide a valid resume.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isJDValid) {
+      toast({
+        title: "Invalid Job Description",
+        description: jdValidationError || "Please provide a valid job description.",
         variant: "destructive",
       });
       return;
@@ -518,6 +646,12 @@ export default function JobMatchPage() {
                         <span>Choose File</span>
                       </Button>
                     </label>
+                    {resumeValidationError && inputMode === "upload" && (
+                      <p className="text-sm text-red-500 mt-2 flex items-center justify-center gap-1">
+                        <AlertCircle className="h-4 w-4" />
+                        {resumeValidationError}
+                      </p>
+                    )}
                   </div>
                 ) : (
                   <div>
@@ -534,9 +668,17 @@ export default function JobMatchPage() {
                         }
                       }}
                       placeholder="Paste your complete resume text here including all sections: contact info, summary, experience, education, skills, etc..."
-                      className="w-full p-4 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 resize-y min-h-[200px]"
+                      className={`w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 resize-y min-h-[200px] ${resumeValidationError ? "border-red-500" : "border-slate-300 dark:border-slate-700"
+                        }`}
                       rows={12}
+                      onBlur={() => validateResumeContent(resumeText)}
                     />
+                    {resumeValidationError && (
+                      <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                        <AlertCircle className="h-4 w-4" />
+                        {resumeValidationError}
+                      </p>
+                    )}
                     <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                       Paste the complete text from your resume for best results
                     </p>
@@ -566,10 +708,18 @@ export default function JobMatchPage() {
                     }
                   }}
                   placeholder="Paste the complete job description here including responsibilities, requirements, and qualifications..."
-                  className="w-full p-3 border border-slate-300 dark:border-slate-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 resize-y min-h-[160px]"
+                  className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 resize-y min-h-[160px] ${jdValidationError ? "border-red-500" : "border-slate-300 dark:border-slate-700"
+                    }`}
                   rows={8}
                   required
+                  onBlur={() => validateJDContent(jobDescription)}
                 />
+                {jdValidationError && (
+                  <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                    <AlertCircle className="h-4 w-4" />
+                    {jdValidationError}
+                  </p>
+                )}
                 <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
                   Include all job requirements, skills, and qualifications for
                   accurate matching
@@ -580,9 +730,12 @@ export default function JobMatchPage() {
                 type="submit"
                 disabled={
                   isAnalyzing ||
-                  (inputMode === "upload" && !pdfFile) ||
-                  (inputMode === "paste" && !resumeText.trim()) ||
-                  !jobDescription.trim()
+                  isValidatingResume ||
+                  isValidatingJD ||
+                  (inputMode === "upload" && (!pdfFile || !isResumeValid)) ||
+                  (inputMode === "paste" && (!resumeText.trim() || !isResumeValid)) ||
+                  !jobDescription.trim() ||
+                  !isJDValid
                 }
                 className="w-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 hover:from-blue-600 hover:via-purple-600 hover:to-pink-600 text-white font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
                 size="lg"

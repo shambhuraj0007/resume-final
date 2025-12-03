@@ -111,18 +111,27 @@ export async function POST(req: NextRequest) {
       resumeText = await resumeFile.text();
     }
 
-    // Validate Resume
-    const { isValidResume } = await import("@/lib/resume-validation");
-    // Note: For plain text files, we don't have page count, so we pass undefined
-    const numPages = resumeFile.type === 'application/pdf' ? (await pdfParse(Buffer.from(await resumeFile.arrayBuffer()))).numpages : undefined;
+    // Validate Resume (Heuristic)
+    const { validateResumeText, validateJobDescriptionText } = await import("@/lib/documentValidators");
 
-    const validationResult = isValidResume(resumeText, numPages);
-
-    if (!validationResult.isValid) {
+    const resumeValidation = validateResumeText(resumeText);
+    if (!resumeValidation.isValid) {
       return NextResponse.json(
         {
-          error: validationResult.reason,
-          details: validationResult.details
+          error: resumeValidation.reason,
+          code: resumeValidation.code
+        },
+        { status: 400 }
+      );
+    }
+
+    // Validate Job Description (Heuristic)
+    const jdValidation = validateJobDescriptionText(jobDescription);
+    if (!jdValidation.isValid) {
+      return NextResponse.json(
+        {
+          error: jdValidation.reason,
+          code: jdValidation.code
         },
         { status: 400 }
       );
@@ -266,7 +275,7 @@ Job Description Validation Criteria:
 - Red flags: Looks like a resume, contains "I have experience in", personal pronouns about candidate
 
 If Resume appears to be a JD: Set isValidCV=false, validationWarning="The resume text appears to be a job description. Please provide your actual resume/CV."
-If JD appears to be a Resume: Set isValidJD=false, validationWarning="The job description appears to be a resume. Please provide the actual job posting."
+If JD appears to be a Resume: Set isValidJD=false, validationWarning="The job description doesn't look like a job posting. Please provide the actual job posting."
 If both are invalid or swapped: Set both to false, validationWarning="The inputs appear to be swapped or invalid. Please ensure you paste your resume in the resume field and the job description in the JD field."
 If inputs are too short (<200 chars each): Return error JSON
 

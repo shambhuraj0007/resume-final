@@ -95,7 +95,7 @@ const DownloadPage = () => {
         style={{
           fontFamily: fontFamily || 'DM Sans',
           width: '21cm',
-          minHeight: '29.7cm',
+          minHeight: 'auto',
           background: 'white',
           margin: '0.5cm',
           padding: '1.5cm 2cm',
@@ -134,7 +134,7 @@ const DownloadPage = () => {
 
         #resume-content {
           width: 21cm;
-          min-height: 29.7cm;
+          min-height: auto;
           background: white;
           margin: 0.5cm;
           padding: 1.5cm 2cm;

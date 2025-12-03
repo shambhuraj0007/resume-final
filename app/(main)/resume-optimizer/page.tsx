@@ -1169,7 +1169,7 @@ export default function ResumeOptimizerPage() {
                       style={{
                         fontFamily: optimizedResume.fontFamily || 'DM Sans',
                         width: '21cm',
-                        minHeight: '29.7cm',
+                        minHeight: 'auto',
                         margin: '0.5cm auto',
                         padding: '1.5cm 2cm',
                         boxSizing: 'border-box',
