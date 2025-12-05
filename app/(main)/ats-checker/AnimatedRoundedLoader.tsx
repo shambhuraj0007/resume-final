@@ -232,7 +232,7 @@ export default function AnimatedRoundedLoader() {
           <div className={`mt-6 flex items-center gap-2 text-xs text-slate-400 ${isFinished && "opacity-25"}`}>
             <Sparkles className={`w-3.5 h-3.5 text-indigo-400 ${!isFinished && "smooth-rotate"}`} />
             <span>
-              {isFinished ? "Ready to view results" : "AI processing..."}
+              {isFinished ? "Ready" : "AI processing..."}
             </span>
           </div>
         </div>

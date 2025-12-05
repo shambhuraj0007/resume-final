@@ -682,19 +682,27 @@ export default function JobMatchPage() {
 
                 {inputMode === "upload" ? (
                   <div
-                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${pdfFile
-                      ? "border-green-400 dark:border-green-500 bg-green-50/50 dark:bg-green-950/20"
-                      : "border-slate-300 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-500 bg-slate-50/50 dark:bg-slate-900/50"
-                      }`}
+                    className={`border-2 border-dashed rounded-lg p-8 text-center transition-all ${
+                      resumeValidationError
+                        ? "border-red-500 bg-red-50/10"
+                        : isResumeValid
+                        ? "border-green-400 dark:border-green-500 bg-green-50/50 dark:bg-green-950/20"
+                        : "border-slate-300 dark:border-slate-700 hover:border-purple-400 dark:hover:border-purple-500 bg-slate-50/50 dark:bg-slate-900/50"
+                    }`}
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
                   >
-                    <Upload
-                      className={`w-10 h-10 mx-auto mb-3 ${pdfFile
-                        ? "text-green-500"
-                        : "text-purple-500 dark:text-purple-400"
-                        }`}
-                    />
+                   <Upload
+  className={`w-10 h-10 mx-auto mb-3 ${
+    resumeValidationError
+      ? "text-red-500"
+      : pdfFile
+      ? "text-green-500"
+      : "text-purple-500 dark:text-purple-400"
+  }`}
+/>
+
+                  
                     <p className="text-sm font-medium mb-1 text-gray-900 dark:text-gray-100">
                       {pdfFile
                         ? pdfFile.name
@@ -745,8 +753,13 @@ export default function JobMatchPage() {
                         }
                       }}
                       placeholder="Paste your complete resume text here including all sections: contact info, summary, experience, education, skills, etc..."
-                      className={`w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 resize-y min-h-[200px] ${resumeValidationError ? "border-red-500" : "border-slate-300 dark:border-slate-700"
-                        }`}
+                      className={`w-full p-4 border rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 bg-white dark:bg-slate-900 text-gray-900 dark:text-gray-100 resize-y min-h-[200px] ${
+                        resumeValidationError
+                          ? "border-red-500"
+                          : isResumeValid
+                          ? "border-green-500"
+                          : "border-slate-300 dark:border-slate-700"
+                      }`}
                       rows={12}
                       onBlur={() => validateResumeContent(resumeText)}
                     />

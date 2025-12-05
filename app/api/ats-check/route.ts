@@ -228,14 +228,19 @@ export async function POST(req: NextRequest) {
 }
 
 
-async function analyzeWithOpenRouter(resumeText: string, jobDescription: string): Promise<CompatibilityResult> {
+
+async function analyzeWithOpenRouter(
+  resumeText: string, 
+  jobDescription: string
+): Promise<CompatibilityResult> {
+  
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
+  const GROK_API_KEY = process.env.GROK_API_KEY?.trim();
+  const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY?.trim();
+  const GEMINI_API_KEY=process.env.GEMINI_API_KEY?.trim();
 
-  console.log('API Key exists:', !!OPENROUTER_API_KEY);
-  console.log('API Key length:', OPENROUTER_API_KEY?.length);
-
-  if (!OPENROUTER_API_KEY) {
-    throw new Error("OpenRouter API key not configured");
+  if (!OPENROUTER_API_KEY && !GROK_API_KEY) {
+    throw new Error("No API keys configured (OpenRouter or Grok)");
   }
 
   const prompt = `You are an expert Resume & Job Description Alignment Analyst combining expertise from Senior Technical Recruiters, ATS (Applicant Tracking System) Engineers, and Hiring Managers across multiple domains.
@@ -508,60 +513,201 @@ Resume Text: """${resumeText}"""
 
 Job Description: """${jobDescription}"""`;
 
-  const headers: HeadersInit = {
-    "Content-Type": "application/json",
-    Authorization: `Bearer ${OPENROUTER_API_KEY}`,
-    'HTTP-Referer': process.env.NEXT_PUBLIC_URL || 'https://resume-optimizer.com',
-    'X-Title': 'Resume Optimizer',
+  // 1. Define Interface to prevent type inference errors
+  interface ModelTier {
+    id: string;
+    name: string;
+    endpoint: string;
+    apiKey: string | undefined;
+    headers: Record<string, string>; // Enforces that ALL values are strings
+    enabled: boolean;
+    maxRetries: number;
+    timeout: number;
+  }
+
+  // 2. Configure Model Tiers with explicit typing
+  const MODEL_TIERS: ModelTier[] = [
+    
+    {
+      id: "deepseek/deepseek-v3.2",
+      name: "deepseek/deepseek-v3.2",
+      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: OPENROUTER_API_KEY,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
+        "X-Title": "Resume Optimizer",
+      },
+      enabled: !!OPENROUTER_API_KEY,
+      maxRetries: 2,
+      timeout: 30000,
+    },
+    {
+      id: "z-ai/glm-4.5-air:free",
+      name: "z-ai/glm-4.5-air:free",
+      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: OPENROUTER_API_KEY,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
+        "X-Title": "Resume Optimizer",
+      },
+      enabled: !!OPENROUTER_API_KEY,
+      maxRetries: 2,
+      timeout: 30000,
+    },
+     {
+    id: "llama3-70b-8192",
+    name: "Llama 3.1 70B (Groq)",
+    endpoint: "https://api.groq.com/openai/v1/chat/completions",
+    apiKey: GROK_API_KEY,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${GROK_API_KEY}`,
+    },
+    enabled: !!GROK_API_KEY,
+    maxRetries: 1,
+    timeout: 15000,
+  },
+     {
+      id: "openrouter-gpt4o",
+      name: "openai/gpt-4o-mini",
+      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: OPENROUTER_API_KEY,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
+        "X-Title": "Resume Optimizer",
+      },
+      enabled: !!OPENROUTER_API_KEY,
+      maxRetries: 2,
+      timeout: 30000,
+    },
+    {
+    id: "groq-primary",
+    name: "openai/gpt-oss-20b", // Use a valid Groq model name
+    endpoint: "https://api.groq.com/openai/v1/chat/completions", // Use the Groq endpoint
+    apiKey: GROK_API_KEY,
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${GROK_API_KEY}`,
+    },
+    enabled: !!GROK_API_KEY, // Enable this tier if the key exists
+    maxRetries: 2,
+    timeout: 30000,
+  },
+   
+    {
+      id: "openrouter-gemini",
+      name: "google/gemini-2.0",
+      endpoint: "https://openrouter.ai/api/v1/chat/completions",
+      apiKey: OPENROUTER_API_KEY,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
+        "X-Title": "Resume Optimizer",
+      },
+      enabled: !!OPENROUTER_API_KEY,
+      maxRetries: 1,
+      timeout: 25000,
+    },
+  ];
+
+  const retryWithBackoff = async (
+    fn: () => Promise<Response>,
+    maxRetries: number,
+    baseDelay: number = 1000
+  ): Promise<Response> => {
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        const response = await fn();
+        if (response.status === 429) {
+          const errorBody = await response.text();
+          console.warn(`⚠️ Rate limit hit (429). Attempt ${attempt + 1}/${maxRetries + 1}`);
+          if (attempt < maxRetries) {
+            const delay = baseDelay * Math.pow(2, attempt);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            continue;
+          }
+        }
+        return response;
+      } catch (error) {
+        if (attempt === maxRetries) throw error;
+        const delay = baseDelay * Math.pow(2, attempt);
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    throw new Error("Max retries exceeded");
   };
 
-  // Using OpenRouter's OpenAI-compatible endpoint, rate-limited via openRouterQueue
-  const response = await openRouterQueue.add(() =>
-    fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        model: "openai/gpt-4o-mini",  // or "gemini-2.5-flash" or "gemini-2.5-pro"
-        messages: [{ role: "user", content: prompt }],
-        response_format: { type: "json_object" },
-        max_tokens: 8000,
-      }),
-    })
-  );
+  let lastError: Error | null = null;
+  const activeTiers = MODEL_TIERS.filter(t => t.enabled);
 
-  // Handle quota/rate limit errors
-  if (response.status === 429) {
-    const errorBody = await response.text();
-    console.error("OpenRouter 429 Error (Rate Limit):", errorBody);
-    throw new Error("INSUFFICIENT_QUOTA");
+  for (let i = 0; i < activeTiers.length; i++) {
+    const tier = activeTiers[i];
+    
+    try {
+      console.log(`🤖 Attempting Model Tier ${i + 1}/${activeTiers.length}: ${tier.name}`);
+      
+      const makeRequest = async () => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), tier.timeout);
+        
+        try {
+          const response = await fetch(tier.endpoint, {
+            method: "POST",
+            headers: tier.headers, // Now guaranteed to be Record<string, string>
+            body: JSON.stringify({
+              model: tier.name === "grok-beta" ? "grok-beta" : tier.name,
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" },
+              max_tokens: 4000,
+              temperature: 0.3,
+            }),
+            signal: controller.signal,
+          });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      };
+
+      const response = await retryWithBackoff(makeRequest, tier.maxRetries);
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      const messageContent = data.choices[0].message.content;
+      
+      if (!messageContent?.trim()) throw new Error('Empty response');
+      
+      try {
+        const result = JSON.parse(messageContent);
+        result._metadata = { model: tier.name, provider: tier.id.includes('grok') ? 'x.ai' : 'openrouter' };
+        return result;
+      } catch (parseError) {
+        throw new Error('Invalid JSON structure received');
+      }
+
+    } catch (error) {
+      console.error(`❌ Tier failed: ${tier.name}`, error);
+      lastError = error as Error;
+      if (i < activeTiers.length - 1) continue;
+    }
   }
-
-  if (!response.ok) {
-    const errorBody = await response.text();
-    console.error('OpenRouter API error:', response.status, response.statusText, errorBody);
-    throw new Error(`OpenRouter API error: ${response.statusText} - ${errorBody}`);
-  }
-
-  const data = await response.json();
-
-  // Check if response was truncated
-  if (data.choices[0].finish_reason === 'length') {
-    console.warn('Warning: AI response was truncated due to max_tokens limit');
-  }
-
-  const messageContent = data.choices[0].message.content;
-
-  // Validate JSON before parsing
-  if (!messageContent || messageContent.trim().length === 0) {
-    throw new Error('Empty response from AI');
-  }
-
-  try {
-    const result = JSON.parse(messageContent);
-    return result;
-  } catch (parseError) {
-    console.error('JSON Parse Error:', parseError);
-    console.error('Raw content:', messageContent.substring(0, 500));
-    throw new Error('Invalid JSON response from AI. The response may have been truncated.');
-  }
+  
+  throw new Error(`All analysis models failed. Last error: ${lastError?.message || 'Unknown error'}`);
 }
+
+
+
+

@@ -1,11 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import { Upload, FileText, Copy, Loader2 } from "lucide-react";
+import { Upload, FileText, Copy, Loader2, AlertCircle } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { useCredits } from "@/hooks/useCredits";
 import InsufficientCreditsModal from "@/components/credits/InsufficientCreditsModal";
@@ -39,6 +39,14 @@ function HomeResumeUploader() {
   const [showInsufficientModal, setShowInsufficientModal] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
+  // Validation State
+  const [isResumeValid, setIsResumeValid] = useState(false);
+  const [resumeValidationError, setResumeValidationError] = useState<string | null>(null);
+  const [isJDValid, setIsJDValid] = useState(false);
+  const [jdValidationError, setJdValidationError] = useState<string | null>(null);
+  const [isValidatingResume, setIsValidatingResume] = useState(false);
+  const [isValidatingJD, setIsValidatingJD] = useState(false);
+
   const { balance, refreshBalance } = useCredits();
 
   const validateFile = (file: File) => {
@@ -63,11 +71,172 @@ function HomeResumeUploader() {
     return true;
   };
 
+  // Validation Helpers
+  const validateResumeContent = async (text: string) => {
+    if (!text.trim()) {
+      setIsResumeValid(false);
+      setResumeValidationError(null);
+      return;
+    }
+
+    setIsValidatingResume(true);
+    try {
+      const resp = await fetch("/api/validate-resume", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        setResumeValidationError(data.reason || "Invalid resume content.");
+        setIsResumeValid(false);
+      } else {
+        setResumeValidationError(null);
+        setIsResumeValid(true);
+      }
+    } catch (e) {
+      setResumeValidationError("Validation failed. Please try again.");
+      setIsResumeValid(false);
+    } finally {
+      setIsValidatingResume(false);
+    }
+  };
+
+  const validateJDContent = async (text: string) => {
+    if (!text.trim()) {
+      setIsJDValid(false);
+      setJdValidationError(null);
+      return;
+    }
+
+    setIsValidatingJD(true);
+    try {
+      const resp = await fetch("/api/validate-jd", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await resp.json();
+
+      if (!resp.ok || !data.ok) {
+        setJdValidationError(data.reason || "Invalid job description.");
+        setIsJDValid(false);
+      } else {
+        setJdValidationError(null);
+        setIsJDValid(true);
+      }
+    } catch (e) {
+      setJdValidationError("Validation failed. Please try again.");
+      setIsJDValid(false);
+    } finally {
+      setIsValidatingJD(false);
+    }
+  };
+
+  const handleFileValidation = async (file: File) => {
+    setIsValidatingResume(true);
+    setResumeValidationError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await fetch("/api/extract-pdf-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        await validateResumeContent(data.text);
+      } else {
+        const errorData = await response.json();
+        setResumeValidationError(errorData.error || "Failed to extract text from PDF");
+        setIsResumeValid(false);
+        setIsValidatingResume(false);
+      }
+    } catch (error) {
+      setResumeValidationError("Failed to process PDF. Please try again.");
+      setIsResumeValid(false);
+      setIsValidatingResume(false);
+    }
+  };
+
+  // Save draft on changes
+  useEffect(() => {
+    const saveDraft = async () => {
+      const fileToStore = pdfFile
+        ? {
+          name: pdfFile.name,
+          type: pdfFile.type,
+          dataUrl: await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(pdfFile);
+          }),
+        }
+        : null;
+
+      const draft = {
+        resumeData: resumeText,
+        resumeFile: fileToStore,
+        jobDescription,
+        inputMode,
+        timestamp: Date.now(),
+      };
+      sessionStorage.setItem("homeAnalyzerDraft", JSON.stringify(draft));
+    };
+
+    const timeoutId = setTimeout(saveDraft, 1000); // Debounce
+    return () => clearTimeout(timeoutId);
+  }, [resumeText, jobDescription, inputMode, pdfFile]);
+
+  // Restore state on mount
+  useEffect(() => {
+    const initializeState = async () => {
+      const draftStr = sessionStorage.getItem("homeAnalyzerDraft");
+
+      if (draftStr) {
+        try {
+          const draft = JSON.parse(draftStr);
+          // Check if draft is recent (e.g., 24 hours)
+          if (Date.now() - draft.timestamp < 86400000) {
+            if (draft.inputMode) setInputMode(draft.inputMode);
+
+            if (draft.resumeData) {
+              setResumeText(draft.resumeData);
+              validateResumeContent(draft.resumeData);
+            }
+
+            if (draft.resumeFile) {
+              const res = await fetch(draft.resumeFile.dataUrl);
+              const blob = await res.blob();
+              const file = new File([blob], draft.resumeFile.name, { type: draft.resumeFile.type });
+              setPdfFile(file);
+              handleFileValidation(file);
+            }
+
+            if (draft.jobDescription) {
+              setJobDescription(draft.jobDescription);
+              validateJDContent(draft.jobDescription);
+            }
+          }
+        } catch (e) {
+          // console.error("Error loading draft:", e);
+        }
+      }
+    };
+
+    initializeState();
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && validateFile(file)) {
       setPdfFile(file);
       setResumeText("");
+      handleFileValidation(file); // Trigger validation
       toast({
         title: "Resume Selected",
         description: `${file.name} uploaded successfully!`,
@@ -81,6 +250,7 @@ function HomeResumeUploader() {
     if (file && validateFile(file)) {
       setPdfFile(file);
       setResumeText("");
+      handleFileValidation(file); // Trigger validation
       toast({
         title: "Resume Uploaded",
         description: `${file.name} uploaded successfully!`,
@@ -95,6 +265,10 @@ function HomeResumeUploader() {
   const toggleInputMode = () => {
     const newMode = inputMode === "upload" ? "paste" : "upload";
     setInputMode(newMode);
+
+    // Clear validation state
+    setIsResumeValid(false);
+    setResumeValidationError(null);
 
     if (newMode === "upload") {
       setResumeText("");
@@ -133,14 +307,58 @@ function HomeResumeUploader() {
       return;
     }
 
+    // Validation Checks
+    if (!isResumeValid) {
+      toast({
+        title: "Invalid Resume",
+        description: resumeValidationError || "Please provide a valid resume.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!isJDValid) {
+      toast({
+        title: "Invalid Job Description",
+        description: jdValidationError || "Please provide a valid job description.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     // Auth Check
     if (status === "unauthenticated") {
+      // Save current state before redirecting
+      const fileToStore = pdfFile
+        ? {
+          name: pdfFile.name,
+          type: pdfFile.type,
+          dataUrl: await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(pdfFile);
+          }),
+        }
+        : null;
+
+      const resumeData = inputMode === "paste" ? resumeText : null;
+
+      const payload = {
+        resumeData,
+        resumeFile: fileToStore,
+        jobDescription: jobDescription.trim(),
+        autoStart: true,
+        timestamp: Date.now(),
+      };
+
+      sessionStorage.setItem("pendingAnalysis", JSON.stringify(payload));
+
       toast({
         title: "Sign In Required",
         description: "Please sign in to analyze your resume.",
         variant: "destructive",
       });
-      router.push("/signin?callbackUrl=/ats-checker");
+      router.push(`/signin?callbackUrl=${encodeURIComponent(window.location.href)}`);
       return;
     }
 
@@ -241,18 +459,27 @@ function HomeResumeUploader() {
                   />
                   <label
                     htmlFor="resume-upload"
-                    className={`block border-2 border-dashed rounded-lg text-center transition-all cursor-pointer flex flex-col items-center justify-center p-6 ${pdfFile
-                      ? "border-green-400 bg-green-50/10"
-                      : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/5"
-                      }`}
+                    className={`block border-2 border-dashed rounded-lg text-center transition-all cursor-pointer flex flex-col items-center justify-center p-6 ${
+                      resumeValidationError
+                        ? "border-red-500 bg-red-50/10"
+                        : isResumeValid
+                        ? "border-green-400 bg-green-50/10"
+                        : "border-muted-foreground/25 hover:border-muted-foreground/50 hover:bg-muted/5"
+                    }`}
                     style={{ minHeight: SIZES.resumeMinHeight }}
                     onDrop={handleDrop}
                     onDragOver={handleDragOver}
                   >
                     <Upload
-                      className={`w-10 h-10 mx-auto mb-3 ${pdfFile ? "text-green-500" : "text-muted-foreground"
-                        }`}
-                    />
+  className={`w-10 h-10 mx-auto mb-3 ${
+    resumeValidationError
+      ? "text-red-500"
+      : pdfFile
+      ? "text-green-500"
+      : "text-muted-foreground"
+  }`}
+/>
+
                     <p className="text-sm font-medium mb-1">
                       {pdfFile
                         ? pdfFile.name
@@ -267,6 +494,12 @@ function HomeResumeUploader() {
                       Browse Files
                     </span>
                   </label>
+                  {resumeValidationError && inputMode === "upload" && (
+                    <p className="text-sm text-red-500 mt-2 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {resumeValidationError}
+                    </p>
+                  )}
                 </>
               ) : (
                 <div>
@@ -274,13 +507,20 @@ function HomeResumeUploader() {
                     value={resumeText}
                     onChange={(e) => setResumeText(e.target.value)}
                     placeholder="Paste your complete resume text here including all sections: contact info, summary, experience, education, skills, etc..."
-                    className="w-full p-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background resize-y"
+                    className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background resize-y ${resumeValidationError ? "border-red-500" : "border-input"}`}
                     style={{
                       minHeight: SIZES.resumeMinHeight,
                       maxHeight: SIZES.resumeMaxHeight
                     }}
                     rows={SIZES.resumeRows}
+                    onBlur={() => validateResumeContent(resumeText)}
                   />
+                  {resumeValidationError && (
+                    <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                      <AlertCircle className="h-4 w-4" />
+                      {resumeValidationError}
+                    </p>
+                  )}
                   <p className="text-xs text-muted-foreground mt-1">
                     Paste the complete text from your resume for best results
                   </p>
@@ -301,14 +541,21 @@ function HomeResumeUploader() {
                 value={jobDescription}
                 onChange={(e) => setJobDescription(e.target.value)}
                 placeholder="Paste the complete job description here including responsibilities, requirements, and qualifications..."
-                className="w-full p-3 border border-input rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background resize-y"
+                className={`w-full p-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-ring bg-background resize-y ${jdValidationError ? "border-red-500" : "border-input"}`}
                 style={{
                   minHeight: SIZES.jdMinHeight,
                   maxHeight: SIZES.jdMaxHeight
                 }}
                 rows={SIZES.jdRows}
                 required
+                onBlur={() => validateJDContent(jobDescription)}
               />
+              {jdValidationError && (
+                <p className="text-sm text-red-500 mt-1 flex items-center gap-1">
+                  <AlertCircle className="h-4 w-4" />
+                  {jdValidationError}
+                </p>
+              )}
               <p className="text-xs text-muted-foreground mt-4">
                 Include all job requirements, skills, and qualifications for
                 accurate matching
@@ -319,9 +566,12 @@ function HomeResumeUploader() {
               type="submit"
               disabled={
                 isNavigating ||
-                (inputMode === "upload" && !pdfFile) ||
-                (inputMode === "paste" && !resumeText.trim()) ||
-                !jobDescription.trim()
+                isValidatingResume ||
+                isValidatingJD ||
+                (inputMode === "upload" && (!pdfFile || !isResumeValid)) ||
+                (inputMode === "paste" && (!resumeText.trim() || !isResumeValid)) ||
+                !jobDescription.trim() ||
+                !isJDValid
               }
               className="w-full rounded-full bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 text-white px-6 sm:px-8 py-2.5 sm:py-3 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-105 mt-12"
               size="lg"
