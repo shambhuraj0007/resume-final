@@ -96,17 +96,17 @@ export async function GET(request: NextRequest) {
       deviceScaleFactor: 1,
     });
 
-    // Generate PDF with exact A4 dimensions and minimal margins
+    // Generate PDF with optimized settings to prevent empty pages
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      preferCSSPageSize: true,
+      preferCSSPageSize: true, // Let CSS control page sizing
       displayHeaderFooter: false,
       margin: {
-        top: "0.5cm",
-        right: "0.5cm", 
-        bottom: "0.5cm",
-        left: "0.5cm",
+        top: "0px",
+        right: "0px",
+        bottom: "0px",
+        left: "0px",
       },
       // Ensure consistent page breaking
       pageRanges: '',
@@ -116,7 +116,8 @@ export async function GET(request: NextRequest) {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
-        "Content-Disposition": `attachment; filename=resume.pdf`,
+        "Content-Length": pdf.length.toString(),
+        "Content-Disposition": `inline; filename="resume.pdf"`, // Changed to inline for preview support
       },
     });
   } catch (error) {

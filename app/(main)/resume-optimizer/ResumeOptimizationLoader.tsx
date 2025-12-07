@@ -44,7 +44,7 @@ export default function ResumeOptimizationLoader() {
         }
         return prev + 1;
       });
-    }, 3000); // 2 seconds per step (total ~20 seconds)
+    }, 3500); // 2 seconds per step (total ~20 seconds)
 
     return () => clearInterval(interval);
   }, [isFinished, loaderTexts.length]);

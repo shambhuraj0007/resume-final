@@ -1,4 +1,5 @@
 import './globals.css';
+import '../styles/print-optimize.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
 import { ThemeWrapper } from '@/components/ThemeWrapper';

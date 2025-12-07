@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 export interface IAnalysisHistory extends Document {
   userId: mongoose.Types.ObjectId;
   resumeId?: mongoose.Types.ObjectId;
-  analysisType: 'resume_analysis' | 'resume_creation' | 'resume_edit' | 'resume_optimization';
+  analysisType: 'resume_analysis' | 'resume_creation' | 'resume_edit' | 'resume_optimization' | 'ats_check';
   creditsUsed: number;
   fileName?: string;
   status: 'success' | 'failed';
@@ -24,7 +24,7 @@ const AnalysisHistorySchema: Schema<IAnalysisHistory> = new Schema(
     },
     analysisType: {
       type: String,
-      enum: ['resume_analysis', 'resume_creation', 'resume_edit', 'resume_optimization'],
+      enum: ['resume_analysis', 'resume_creation', 'resume_edit', 'resume_optimization', 'ats_check'],
       required: true,
     },
     creditsUsed: {

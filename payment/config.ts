@@ -57,6 +57,7 @@ export const FREE_CREDITS_ON_SIGNUP = 1;
 // Credit costs for different actions
 export const CREDIT_COSTS = {
   RESUME_ANALYSIS: 1,
+  ATS_CHECK: 1,
   RESUME_CREATION: 1,
   RESUME_EDIT: 1,
   RESUME_OPTIMIZATION: 5,

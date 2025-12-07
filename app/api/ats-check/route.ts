@@ -1,47 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerSession } from 'next-auth';
-import connectDB from '@/lib/mongodb';
-import { hasCredits, deductCredits } from '@/payment/creditService';
-import { CREDIT_COSTS } from '@/payment/config';
-import AnalysisResult from '@/models/AnalysisResult';
-import { openRouterQueue } from '@/lib/requestQueue';
-const pdfParse = require('pdf-parse');
+import { getServerSession } from "next-auth";
+import { hasCredits, deductCredits } from "@/payment/creditService";
+import { CREDIT_COSTS } from "@/payment/config";
+import connectDB from "@/lib/mongodb";
+import AnalysisResult from "@/models/AnalysisResult";
+import { openRouterQueue } from "@/lib/requestQueue";
+import {
+  calculateScores,
+  computeStructuralFit,
+} from "@/lib/scoring/scoreEngine";
+import { generateDeterministicSuggestions } from "@/lib/scoring/suggestionGenerator";
+import type { LLMExtractionResult, Suggestion } from "@/lib/scoring/interfaces";
+import { matchSkillLists } from "@/lib/scoring/skillMatcher";
 
-interface Suggestion {
-  suggestion: string;
-  originalText: string;
-  improvedText: string;
-  category: 'text' | 'keyword' | 'other';
-}
-
-interface CompatibilityResult {
-  currentScore: number;
-  potentialScore: number;
-  currentCallback: number;
-  potentialCallback: number;
-  keywords: string[];
-  topRequiredKeywords: string[];
-  missingKeywords: string[];
-  suggestions: Suggestion[];
-  textSuggestions: Suggestion[];
-  keywordSuggestions: Suggestion[];
-  otherSuggestions: Suggestion[];
-  evidence: {
-    matchedResponsibilities: Array<{ jdFragment: string; resumeFragment: string }>;
-    matchedSkills: Array<{ skill: string; resumeFragment: string }>;
-  };
-  scoreBreakdown: {
-    requiredSkills: number;
-    experience: number;
-    responsibilities: number;
-    education: number;
-    industry: number;
-  };
-  confidence: number;
-  isValidJD: boolean;
-  isValidCV: boolean;
-  validationWarning?: string;
-}
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,665 +21,472 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession();
 
     if (!session || !session.user?.email) {
-      return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     await connectDB();
 
-    // Get user
-    const User = (await import('@/models/User')).default;
+    // Get user ObjectId
+    const User = (await import("@/models/User")).default;
     const user = await User.findOne({ email: session.user.email });
 
     if (!user) {
-      return NextResponse.json(
-        { error: 'User not found' },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
     const userId = (user._id as any).toString();
 
-    // Check credits BEFORE processing
+    // Check if user has enough credits
     const hasSufficientCredits = await hasCredits(
       userId,
-      CREDIT_COSTS.RESUME_ANALYSIS
+      CREDIT_COSTS.ATS_CHECK
     );
 
     if (!hasSufficientCredits) {
       return NextResponse.json(
         {
-          error: 'Insufficient credits',
-          code: 'INSUFFICIENT_CREDITS',
-          requiredCredits: CREDIT_COSTS.RESUME_ANALYSIS
+          error: "Insufficient credits",
+          message: `You need ${CREDIT_COSTS.ATS_CHECK} credit to analyze a resume. Please purchase more credits.`,
+          requiredCredits: CREDIT_COSTS.ATS_CHECK,
         },
         { status: 402 }
       );
     }
 
+    // Parse form data
     const formData = await req.formData();
     const resumeFile = formData.get("resume") as File;
-    const jobDescription = formData.get("jobDescription") as string | null;
+    const jobDescription = formData.get("jobDescription") as string;
 
-    if (!resumeFile) {
-      return NextResponse.json({ error: "No resume uploaded" }, { status: 400 });
+    if (!resumeFile || !jobDescription) {
+      return NextResponse.json(
+        { error: "Resume and job description are required" },
+        { status: 400 }
+      );
     }
 
-    if (!jobDescription || jobDescription.trim().length === 0) {
-      return NextResponse.json({ error: "Job description is required" }, { status: 400 });
-    }
+    // Extract resume text
+    let resumeText = "";
+    const fileName = resumeFile.name;
 
-    // Extract text from PDF or plain text
-    let resumeText: string;
-
-    if (resumeFile.type === 'application/pdf') {
-      const pdfBuffer = Buffer.from(await resumeFile.arrayBuffer());
-      const pdfData = await pdfParse(pdfBuffer);
+    if (resumeFile.type === "application/pdf") {
+      // Extract PDF text using existing endpoint logic
+      const pdfParse = require("pdf-parse");
+      const buffer = await resumeFile.arrayBuffer();
+      const pdfData = await pdfParse(Buffer.from(buffer));
       resumeText = pdfData.text;
-    } else {
-      // Handle plain text file
+    } else if (
+      resumeFile.type === "text/plain" ||
+      fileName.endsWith(".txt")
+    ) {
       resumeText = await resumeFile.text();
-    }
-
-    // Validate Resume (Heuristic)
-    const { validateResumeText, validateJobDescriptionText } = await import("@/lib/documentValidators");
-
-    const resumeValidation = validateResumeText(resumeText);
-    if (!resumeValidation.isValid) {
+    } else {
       return NextResponse.json(
-        {
-          error: resumeValidation.reason,
-          code: resumeValidation.code
-        },
+        { error: "Invalid file type. Please upload a PDF or text file." },
         { status: 400 }
       );
     }
 
-    // Validate Job Description (Heuristic)
-    const jdValidation = validateJobDescriptionText(jobDescription);
-    if (!jdValidation.isValid) {
+    if (!resumeText.trim()) {
       return NextResponse.json(
-        {
-          error: jdValidation.reason,
-          code: jdValidation.code
-        },
+        { error: "Resume text is empty or could not be extracted" },
         { status: 400 }
       );
     }
 
-    console.log("Extracted resume text:", resumeText.substring(0, 200));
 
-    // Call OpenRouter AI for job description compatibility analysis
-    const compatibilityResult = await analyzeWithOpenRouter(resumeText, jobDescription);
 
-    // Save analysis result to database
-    try {
-      const analysisRecord = new AnalysisResult({
-        userId,
-        resumeText,
-        jobDescription,
-        fileName: resumeFile.name,
-        currentScore: compatibilityResult.currentScore,
-        potentialScore: compatibilityResult.potentialScore,
-        currentCallback: compatibilityResult.currentCallback,
-        potentialCallback: compatibilityResult.potentialCallback,
-        keywords: compatibilityResult.keywords,
-        topRequiredKeywords: compatibilityResult.topRequiredKeywords,
-        missingKeywords: compatibilityResult.missingKeywords,
-        suggestions: compatibilityResult.suggestions,
-        textSuggestions: compatibilityResult.textSuggestions,
-        keywordSuggestions: compatibilityResult.keywordSuggestions,
-        otherSuggestions: compatibilityResult.otherSuggestions,
-        evidence: compatibilityResult.evidence,
-        scoreBreakdown: compatibilityResult.scoreBreakdown,
-        confidence: compatibilityResult.confidence,
-        isValidJD: compatibilityResult.isValidJD,
-        isValidCV: compatibilityResult.isValidCV,
-        validationWarning: compatibilityResult.validationWarning,
-      });
+    // Call LLM for data extraction (not scoring)
+    const llmData = await extractDataFromLLM(resumeText, jobDescription);
 
-      const savedAnalysis = await analysisRecord.save();
-      console.log('✅ Analysis result saved to database:', savedAnalysis._id);
+    // ------------------------------------------------------------------------
+    // ENHANCED FUZZY MATCHING (User Request)
+    // ------------------------------------------------------------------------
+    // Re-calculate matches and missing skills using robust fuzzy logic (acronyms, etc.)
+    const requiredSkillNames = llmData.requiredSkills.map(s => s.name);
+    const resumeSkillNames = llmData.resumeSkills.map(s => s.name);
 
-      // Add analysisId to response
-      const responseData = {
-        ...compatibilityResult,
-        analysisId: (savedAnalysis._id as any).toString(),
-      };
+    const matchResult = matchSkillLists(requiredSkillNames, resumeSkillNames);
 
-      // Deduct credits AFTER successful analysis and storage
-      await deductCredits(
-        userId,
-        CREDIT_COSTS.RESUME_ANALYSIS,
-        'resume_analysis',
-        undefined,
-        resumeFile.name
-      );
+    // Update missing skills list with our calculated list
+    llmData.missingSkills = matchResult.missing;
 
-      return NextResponse.json(responseData);
-    } catch (dbError) {
-      console.error('Error saving analysis to database:', dbError);
-      // Still deduct credits even if DB save fails
-      try {
-        await deductCredits(
-          userId,
-          CREDIT_COSTS.RESUME_ANALYSIS,
-          'resume_analysis',
-          undefined,
-          resumeFile.name
-        );
-      } catch (creditError) {
-        console.error('Error deducting credits:', creditError);
+    // Update resume skills with new match info
+    // This ensures scoring engine sees the fuzzy matches
+    matchResult.matched.forEach((match: { required: string; candidate: string }) => {
+      const resumeSkill = llmData.resumeSkills.find(rs => rs.name === match.candidate);
+      if (resumeSkill) {
+        // If LLM missed this match or we want to enforce our fuzzy match
+        if (!resumeSkill.jdSkillName || resumeSkill.matchType === 'none') {
+          resumeSkill.jdSkillName = match.required;
+          resumeSkill.matchType = 'synonym'; // Fuzzy/Acronym match
+        }
       }
+    });
+    // ------------------------------------------------------------------------
 
-      // Return analysis result anyway, but with error note
-      return NextResponse.json({
-        ...compatibilityResult,
-        dbError: 'Analysis completed but could not be saved to history',
-      });
-    }
-  } catch (error) {
-    console.error("Error in compatibility check:", error);
+    // Calculate scores using deterministic engine
+    const scoringResult = calculateScores(llmData);
 
-    // Handle specific quota error
-    if (error instanceof Error && error.message === "INSUFFICIENT_QUOTA") {
-      return NextResponse.json(
-        { error: "AI Service quota exceeded. Please try again later." },
-        { status: 402 }
-      );
-    }
+    // ------------------------------------------------------------------------
+    // DYNAMIC SUGGESTION COUNT (User Request)
+    // ------------------------------------------------------------------------
+    // Inverse relationship: Lower score = More suggestions
+    let suggestionCount = 5;
+    if (scoringResult.currentScore < 50) suggestionCount = 10;
+    else if (scoringResult.currentScore < 75) suggestionCount = 7;
+    else if (scoringResult.currentScore < 90) suggestionCount = 5;
+    else suggestionCount = 3;
 
-    const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
+    // Filter suggestions to the determined count
+    // Assumes LLM returned them sorted by impact as requested
+    llmData.suggestions = llmData.suggestions.slice(0, suggestionCount);
+    // ------------------------------------------------------------------------
+
+    // Generate deterministic suggestions
+    const deterministicSuggestions = generateDeterministicSuggestions(
+      llmData,
+      scoringResult.structuralFit,
+      scoringResult.scoreBreakdown.title ? scoringResult.scoreBreakdown.title / 10 : 0, // Approx similarity from score
+      llmData.candidateTitle || "Candidate"
     );
+
+    // Merge suggestions: Deterministic first (Tickable), then LLM (Text/Other)
+    const allSuggestions = [
+      ...deterministicSuggestions,
+      ...llmData.suggestions
+    ];
+
+    // Categorize suggestions
+    const textSuggestions = allSuggestions.filter(
+      (s) => s.category === "text"
+    );
+    const keywordSuggestions = allSuggestions.filter(
+      (s) => s.category === "keyword"
+    );
+    const otherSuggestions = allSuggestions.filter(
+      (s) => s.category === "other"
+    );
+
+    // Extract top required keywords (Ensure at least 10 if available)
+    const topRequiredKeywords = llmData.requiredSkills
+      .sort((a, b) => b.importance - a.importance)
+      .slice(0, 10)
+      .map((s) => s.name);
+
+    // Get matched skills (Limit to top 10)
+    const matchedSkills = llmData.resumeSkills
+      .filter((rs) => rs.matchType !== "none" && rs.jdSkillName)
+      .slice(0, 10)
+      .map((rs) => ({
+        skill: rs.name,
+        matchType: rs.matchType,
+        locations: rs.locations,
+      }));
+
+    // Limit missing skills to top 10 for display
+    const missingKeywords = llmData.missingSkills.slice(0, 10);
+
+    // Ensure potential score is at least 5% higher than current score
+    if (scoringResult.potentialScore < scoringResult.currentScore + 5) {
+      scoringResult.potentialScore = Math.min(scoringResult.currentScore + 5, 100);
+    }
+
+    // Create analysis result
+    const analysisResult = new AnalysisResult({
+      userId: user._id,
+      resumeText,
+      jobDescription,
+      fileName,
+      currentScore: scoringResult.currentScore,
+      potentialScore: scoringResult.potentialScore,
+      currentCallback: scoringResult.currentCallback,
+      potentialCallback: scoringResult.potentialCallback,
+      keywords: llmData.resumeSkills.map((s) => s.name),
+      topRequiredKeywords,
+      missingKeywords,
+      suggestions: allSuggestions,
+      textSuggestions,
+      keywordSuggestions,
+      otherSuggestions,
+      evidence: {
+        matchedResponsibilities: llmData.responsibilities.topJDResponsibilities.map(
+          (r) => ({
+            jdFragment: r,
+            resumeFragment: "", // LLM could provide this
+          })
+        ),
+        matchedSkills: matchedSkills.map((m) => ({
+          skill: m.skill,
+          resumeFragment: "", // LLM could provide this
+        })),
+      },
+      scoreBreakdown: scoringResult.scoreBreakdown,
+      confidence: 0.85, // Fixed confidence for deterministic scoring
+      isValidJD: true,
+      isValidCV: true,
+      // New deterministic scoring fields
+      structuralFit: scoringResult.structuralFit,
+      requiredSkills: llmData.requiredSkills,
+      matchedSkills,
+      experienceBreakdown: {
+        requiredYears: llmData.experience.requiredYears,
+        candidateYears: llmData.experience.candidateYears,
+        requiredSeniority: llmData.experience.requiredSeniority,
+        candidateSeniority: llmData.experience.candidateSeniority,
+      },
+      educationBreakdown: {
+        requiredDegree: llmData.education.requiredDegreeLevel,
+        candidateDegree: llmData.education.candidateDegreeLevel,
+        meetsMinimum: llmData.education.meetsMinimum,
+        bonusTierInstitution: llmData.education.bonusTierInstitution,
+      },
+    });
+
+    await analysisResult.save();
+
+    // Deduct credits AFTER successful save
+    await deductCredits(
+      userId,
+      CREDIT_COSTS.ATS_CHECK,
+      "ats_check",
+      (analysisResult._id as any).toString(),
+      fileName
+    );
+
+    return NextResponse.json({
+      currentScore: scoringResult.currentScore,
+      potentialScore: scoringResult.potentialScore,
+      currentCallback: scoringResult.currentCallback,
+      potentialCallback: scoringResult.potentialCallback,
+      keywords: llmData.resumeSkills.map((s) => s.name),
+      topRequiredKeywords,
+      missingKeywords: llmData.missingSkills,
+      suggestions: allSuggestions,
+      textSuggestions,
+      keywordSuggestions,
+      otherSuggestions,
+      scoreBreakdown: scoringResult.scoreBreakdown,
+      confidence: 0.85,
+      isValidJD: true,
+      isValidCV: true,
+      structuralFit: scoringResult.structuralFit,
+      matchedSkills,
+      insufficentExperience: llmData.experience.candidateYears < llmData.experience.requiredYears,
+      experienceRequired: llmData.experience.requiredYears,
+      experienceHas: llmData.experience.candidateYears,
+      rawLLMData: llmData, // For frontend simulation
+      analysisId: (analysisResult._id as any).toString(),
+      resumeText,
+      jobDescription,
+    });
+  } catch (error) {
+    console.error("Error in ATS check:", error);
+    const errorMessage =
+      error instanceof Error ? error.message : "Internal Server Error";
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }
 
-
-
-async function analyzeWithOpenRouter(
-  resumeText: string, 
+/**
+ * Extract structured data from resume and job description using LLM
+ */
+async function extractDataFromLLM(
+  resumeText: string,
   jobDescription: string
-): Promise<CompatibilityResult> {
-  
+): Promise<LLMExtractionResult> {
   const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-  const GROK_API_KEY = process.env.GROK_API_KEY?.trim();
-  const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY?.trim();
-  const GEMINI_API_KEY=process.env.GEMINI_API_KEY?.trim();
 
-  if (!OPENROUTER_API_KEY && !GROK_API_KEY) {
-    throw new Error("No API keys configured (OpenRouter or Grok)");
+  if (!OPENROUTER_API_KEY) {
+    throw new Error("OpenRouter API key not configured");
   }
 
-  const prompt = `You are an expert Resume & Job Description Alignment Analyst combining expertise from Senior Technical Recruiters, ATS (Applicant Tracking System) Engineers, and Hiring Managers across multiple domains.
-
-Your objective: Evaluate how well a candidate's resume matches a specific job description and return an evidence-based JSON report optimized for ATS success and realistic recruiter callback probability.
+  const prompt = `You are a MASTER  AI for an ATS (Applicant Tracking System). Your job is to extract structured data from a resume and job description and identify specific improvements about text and overall structure for the resume.
 
 ---
 
-PRE-VALIDATION STATUS:
-The input documents have been pre-validated using a hybrid detection model with the following checks:
-
-HARD LIMITS (Already Passed):
-- Page Count: Maximum 5 pages ✓
-- Word Count: Maximum 10,000 words ✓
-- Minimum Text Length: Exceeds 100 characters ✓
-
-SCORING VALIDATION (Score ≥7/20 achieved):
-- Section Headers: Education, Experience, Skills, Projects, Certifications detected
-- Contact Patterns: Email, phone, LinkedIn/GitHub/portfolio links found
-- Structural Signals: Bullet points, date ranges, job role patterns present
-
-This pre-validation confirms document authenticity. Your task is to perform RIGOROUS DEEP SEMANTIC ANALYSIS with strict scoring standards.
+RESUME TEXT:
+"""
+${resumeText}
+"""
 
 ---
 
-INPUT VALIDATION REQUIREMENTS:
-Despite pre-validation, perform final sanity checks:
-
-Resume/CV Validation Criteria:
-- Red flags: Looks like a job posting, contains "we are looking for", "responsibilities include"
-
-Job Description Validation Criteria:
-- Must contain job title, role description, or position details
-- Must contain requirements, qualifications, or responsibilities
-- Should include company expectations or desired skills
-- Typical length: 300-8,000 characters
-- Red flags: Looks like a resume, contains "I have experience in", personal pronouns about candidate
-
-If Resume appears to be a JD: Set isValidCV=false, validationWarning="The resume text appears to be a job description. Please provide your actual resume/CV."
-If JD appears to be a Resume: Set isValidJD=false, validationWarning="The job description doesn't look like a job posting. Please provide the actual job posting."
-If both are invalid or swapped: Set both to false, validationWarning="The inputs appear to be swapped or invalid. Please ensure you paste your resume in the resume field and the job description in the JD field."
-If inputs are too short (<200 chars each): Return error JSON
+JOB DESCRIPTION:
+"""
+${jobDescription}
+"""
 
 ---
 
-INPUT REQUIREMENTS:
-- Resume Text: Plain UTF-8 string (max 20,000 characters). Parsed OCR-safe resume text including all sections (Experience, Skills, Education, etc.).
-- Job Description: Plain UTF-8 string (max 15,000 characters). Full job posting text.
-- Minimum valid input: 200 characters each.
+TASK: Extract the following information in strict JSON format. Do not generate a numeric score, but DO analyze the content to provide actionable suggestions.
 
-If inputs are invalid, return: {"error":"INVALID_INPUT","errorCode":"TEXT_TOO_SHORT"}
+1. **requiredSkills**: Array of All skills from the job description. For each skill:
+   - name: string (skill name from JD)
+   - importance: number (1=nice-to-have, 2=important, 3=critical/must-have)
+   - type: "hard" or "soft" (technical skills vs soft skills)
 
----
+2. **resumeSkills**: Array of All skills found in the resume. For each skill:
+   - name: string (skill name as written in resume)
+   - jdSkillName: string (matching skill name from requiredSkills, or "" if no match)
+   - matchType: "exact" | "synonym" | "related" | "none"
+   - locations: array of where found (options: "title", "summary", "skills", "recent_experience", "other_experience", "other")
 
-COMPATIBILITY SCORING CRITERIA (Total 100 points):
+3. **mustHaveSkills**: Array of critical skill names from JD (importance=3)
 
-BE STRICT AND REALISTIC IN SCORING - Most resumes score 40-70, not 80+.
+4. **missingSkills**: Array of must-have skill names that are NOT in the resume all missing skills from the jd that re not in resSUME
 
-1. Required Skills Match (30 points)
-   - Frequency and semantic overlap of required skills from JD
-   - Use fuzzy + semantic matching for synonyms and abbreviations
-   - Examples: "AI" ↔ "Artificial Intelligence", "AWS" ↔ "Amazon Web Services"
-   - Scoring: (matched_required / total_required) × 30
-   - Partial matches: exact = 1.0, synonym = 0.7, related = 0.5
-   - PENALTY: Missing even 1 critical skill reduces score by 5+ points
+5. **experience**:
+   - requiredYears: number (years of full-time experience required by JD) if not mentioned or unable to get it assume it to be 0 but strictly try to catch it.
+   - candidateYears: number (years of FULL-TIME experience from resume. EXCLUDE internships, part-time work, and contract roles. Count only professional, full-time employment after graduation)
 
-2. Experience Relevance (25 points)
-   - Years and type of experience alignment
-   - Scoring: min(candidateYears / requiredYears, 1.0) × 25
-   - Derive years from role dates and duration
-   - Consider seniority level match (junior/mid/senior)
-   - PENALTY: Mismatched seniority level reduces by 10 points
+6. **education**:
+   - requiredDegreeLevel: "none" | "diploma" | "bachelor" | "master" | "phd"
+   - candidateDegreeLevel: "none" | "diploma" | "bachelor" | "master" | "phd"
+   - meetsMinimum: boolean (does candidate meet minimum education requirement?)
+   - bonusTierInstitution: boolean (is it IIT, IIMA, MIT, Stanford, or other top-tier institution?)
 
-3. Responsibilities Alignment (20 points)
-   - How well past roles match job requirements
-   - Scoring: (matchedResponsibilities / top8JDResponsibilities) × 20
-   - Match past duties with JD expectations using strict semantic similarity
-   - PENALTY: Generic descriptions without specifics reduce by 5 points
+7. **responsibilities**:
+   - topJDResponsibilities: array of  key responsibilities from JD
+   - matchedResponsibilitiesCount: number (how many of those responsibilities are evident in resume)
+   - totalResponsibilitiesConsidered: number (should equal length of topJDResponsibilities)
 
-4. Education & Certifications (15 points)
-   - Degree and certification requirements
-   - Scoring: exact match = 15, partial = 7, missing = 0
-   - STRICT: "Bachelor's required" but candidate has only Associate's = 0 points
+8. **titles**:
+   - jdTitle: string (job title from JD)
+   - candidateCurrentTitle: string (current/most recent job title from resume)
+   - candidateRecentTitles: array of recent job titles from resume
+   - titleSimilarity: number 0.0-1.0 (how similar is candidate's title to JD title)
+   - suggestedTitle: string (an optimized title for the candidate based on the JD, if the current one is a mismatch. Otherwise empty string.)
 
-5. Industry & Domain Fit (10 points)
-   - Relevant industry experience and sector-level relevance
-   - Scoring: (matchedIndustryKeywords / totalIndustryKeywords) × 10
-   - STRICT: Completely different industry = maximum 3 points
+9. **formatSignals**:
+   - hasStandardSections: boolean (does resume have clear experience/education/skills sections?)
+   - isParseable: boolean (is the text well-formatted and readable?)
+   - hasContactInfo: boolean (does resume have email/phone?)
 
----
-
-SCORING METHODOLOGY:
-
-Current Score Calculation:
-- Calculate weighted sum of all 5 criteria
-- Round to nearest integer (0-100)
-- BE HARSH: 90+ means near-perfect match (rare), 70-80 is strong, 50-60 is average
-- Missing 2+ required skills → maximum score of 65
-- Wrong seniority level → maximum score of 70
-- Irrelevant experience does NOT count positively
-- Vague or generic language without metrics → reduce by 10%
-
-Potential Score Calculation:
-- Current score + realistic improvement gain (typically +8 to +15 points)
-- Based on implementable suggestions only
-- Maximum cap: 100
-- DO NOT promise >20 point gains unless major gaps can be filled
+10. **suggestions**: Array of concrete improvement suggestions. For each:
+    - suggestion: string (what to do). Provide EXACTLY 10 suggestions, sorted by highest impact first. The system will filter these based on the candidate's score.
+    - originalText: string (current text from resume, or "MISSING" if adding new content)
+    - improvedText: string (suggested rewrite or new text to add)
+    - category: "text" | "keyword" | "other"
+    - requiresUserConfirmation: boolean (true if suggesting to add experience they might not have)
 
 ---
 
-CALLBACK PROBABILITY MAPPING:
+STRICT OUTPUT SCHEMA (EXAMPLE):
 
-Calculate realistic interview/callback chances:
-
-| Current Score Range | Callback Probability Range |
-|---------------------|----------------------------|
-| 0-30                | 5-15%                      |
-| 30-50               | 15-35%                     |
-| 50-70               | 35-60%                     |
-| 70-85               | 60-80%                     |
-| 85-100              | 80-95%                     |
-
-Adjustments (±10%):
-- Add 10% if candidate has rare/high-demand skills (AI/ML specialist, blockchain, etc.)
-- Subtract 10% if significantly overqualified or underqualified
-- Subtract 5% if missing hard requirements (certifications, clearances)
-- Consider current market demand for the specific role
-
----
-
-ANALYSIS REQUIREMENTS:
-
-1. Extract and match  keywords/skills from JD that CURRENTLY APPEAR in the resume not more than 10.
-2. Identify top 10 MOST IMPORTANT keywords/skills from JD (regardless of whether they appear in resume)
-3. Identify MISSING critical keywords/skills NOT in resume but required by JD (not more than 8)
-4. Provide COMPREHENSIVE improvement suggestions (NO LIMIT - provide as many as needed, typically 10-30+):
-   
-   CATEGORIZE each suggestion into one of three types:
-   
-   a) TEXT IMPROVEMENTS ("text"):
-      - Rewriting existing resume content for better ATS optimization
-      - Improving bullet points, descriptions, and achievements
-      - Making language more impactful and quantifiable
-      - Adding metrics, percentages, and concrete results
-      - Reformatting or restructuring existing content
-      - Removing vague language and replacing with specifics
-   
-   b) KEYWORD IMPROVEMENTS ("keyword"):
-      - Adding missing critical keywords from the job description
-      - Incorporating technical skills, tools, or technologies
-      - Including industry-specific terminology
-      - Adding certifications or qualifications mentioned in JD
-      - Spelling out acronyms and their abbreviations
-   
-   c) OTHER IMPROVEMENTS ("other"):
-      - Structural changes (adding sections, reordering)
-      - Format recommendations
-      - General strategy suggestions
-      - Soft skills or cultural fit improvements
-      - Any suggestions that don't fit text or keyword categories
-
-5. For EACH suggestion, provide:
-   - The exact sentence/phrase from resume that needs improvement (or "MISSING" if not present)
-   - A rewritten replacement sentence optimized for ATS and job match
-   - The category: "text", "keyword", or "other"
-   
-6. Include matched responsibilities with exact text fragments
-7. Include matched skills with resume context
-8. Calculate confidence score (0-100) based on text quality and clarity
-
-BE THOROUGH: Provide many suggestions for comprehensive improvement. Don't hold back.
-
----
-
-REQUIRED OUTPUT FORMAT (STRICT JSON ONLY):
+Here is an example JSON object. Follow this exact structure and key names in your response. Use the same top-level keys and nested keys, but with values derived from the resume and job description:
 
 {
-  "isValidCV": boolean,                // true if resume input is actually a resume/CV
-  "isValidJD": boolean,                // true if job description input is actually a JD
-  "validationWarning": string,         // Optional warning message if validation fails
-  "currentScore": number,              // 0-100, how well resume currently matches
-  "potentialScore": number,            // 0-100, estimated score after improvements
-  "currentCallback": number,           // 0-100, current interview probability
-  "potentialCallback": number,         // 0-100, potential probability after improvements
-  "keywords": [string],                // Top  matched keywords FOUND in resume upto 10
-  "topRequiredKeywords": [string],     // Top 10 most important keywords from JD (priority order)
-  "missingKeywords": [string],         // upto 8 critical missing keywords from JD
+  "requiredSkills": [
+    {
+      "name": "JavaScript",
+      "importance": 3,
+      "type": "hard"
+    }
+  ],
+  "resumeSkills": [
+    {
+      "name": "React",
+      "jdSkillName": "React.js",
+      "matchType": "exact",
+      "locations": ["skills", "recent_experience"]
+    }
+  ],
+  "mustHaveSkills": ["JavaScript"],
+  "missingSkills": ["TypeScript"],
+  "experience": {
+    "requiredYears": 3,
+    "candidateYears": 4
+  },
+  "education": {
+    "requiredDegreeLevel": "bachelor",
+    "candidateDegreeLevel": "bachelor",
+    "meetsMinimum": true,
+    "bonusTierInstitution": false
+  },
+  "responsibilities": {
+    "topJDResponsibilities": [
+      "Develop and maintain web applications",
+      "Collaborate with cross-functional teams"
+    ],
+    "matchedResponsibilitiesCount": 2,
+    "totalResponsibilitiesConsidered": 2
+  },
+  "titles": {
+    "jdTitle": "Frontend Developer",
+    "candidateCurrentTitle": "Software Engineer",
+    "candidateRecentTitles": [
+      "Frontend Engineer",
+      "Software Engineer"
+    ],
+    "titleSimilarity": 0.8,
+    "suggestedTitle": "Senior Frontend Developer"
+  },
+  "formatSignals": {
+    "hasStandardSections": true,
+    "isParseable": true,
+    "hasContactInfo": true
+  },
   "suggestions": [
     {
-      "suggestion": string,            // The actionable improvement tip
-      "originalText": string,          // Exact sentence from resume to replace (or "MISSING" if not present)
-      "improvedText": string,          // Recommended replacement sentence for resume
-      "category": string               // "text", "keyword", or "other"
+      "suggestion": "Add TypeScript to your skills section to match the job description.",
+      "originalText": "MISSING",
+      "improvedText": "Proficient in TypeScript for building scalable web applications.",
+      "category": "keyword",
+      "requiresUserConfirmation": false
     }
-  ],                                   // NO LIMIT - provide  comprehensive suggestions
-  "textSuggestions": [                 // All text improvement suggestions
-    {
-      "suggestion": string,
-      "originalText": string,
-      "improvedText": string,
-      "category": "text"
-    }
-  ],
-  "keywordSuggestions": [              // All keyword improvement suggestions
-    {
-      "suggestion": string,
-      "originalText": string,
-      "improvedText": string,
-      "category": "keyword"
-    }
-  ],
-  "otherSuggestions": [                // All other improvement suggestions
-    {
-      "suggestion": string,
-      "originalText": string,
-      "improvedText": string,
-      "category": "other"
-    }
-  ],
-  "evidence": {
-    "matchedResponsibilities": [
-      {
-        "jdFragment": string,          // Exact text from job description
-        "resumeFragment": string       // Matching text from resume
-      }
-    ],
-    "matchedSkills": [
-      {
-        "skill": string,               // Skill name
-        "resumeFragment": string       // Context from resume showing skill
-      }
-    ]
-  },
-  "scoreBreakdown": {                  // Detailed scoring transparency
-    "requiredSkills": number,          // 0-30 points
-    "experience": number,              // 0-25 points
-    "responsibilities": number,        // 0-20 points
-    "education": number,               // 0-15 points
-    "industry": number                 // 0-10 points
-  },
-  "confidence": number                 // 0-100, analysis confidence level
+  ]
 }
 
 ---
 
 CRITICAL RULES:
-- FIRST validate inputs: Set isValidCV and isValidJD appropriately
-- If validation fails, still provide analysis but include validationWarning
-- Return ONLY valid JSON, no additional text or markdown code blocks
-- All numbers must be integers (rounded to nearest whole number)
-- All probabilities capped at [0, 100]
-- "keywords" must contain ONLY matches found in BOTH documents (not more than  10 items) no keywords foound if 0
-- "topRequiredKeywords" must contain the 10 MOST CRITICAL skills/keywords from JD ranked by importance
-- "missingKeywords" must contain critical terms from JD that are ABSENT in resume (5-10 items)
-- Provide COMPREHENSIVE suggestions ( recommendations, NO LIMIT - be thorough)
-- Each suggestion object MUST include all FOUR fields: suggestion, originalText, improvedText, category
-- Category must be exactly "text", "keyword", or "other"
-- Populate textSuggestions, keywordSuggestions, and otherSuggestions arrays by filtering suggestions by category
-- All suggestions array should contain ALL suggestions, while the categorized arrays contain filtered subsets
-- If originalText is missing from resume, use "MISSING" as the value
-- improvedText must be a complete, ready-to-use sentence for the resume
-- Evidence fragments must be exact quotes from source documents
-- If unable to parse or analyze, return error JSON with explanation
-- Only analyze the requirements from the given job description and preferred qualifications
-- BE STRICT in scoring - most resumes are not 90+, be realistic
--consider only the job requiremnets and similar contents from the JD only dont consider other irrelavant things from JD.
+- Return ONLY valid JSON matching this exact structure (same keys and nesting as the example)
+- DO NOT add commentary, explanations, or scoring
+- DO NOT invent skills or experience not present in the resume
+- For suggestions, be specific and actionable and give at leat 2 suggetions about text languge of resume.
+- If information is unclear, make reasonable assumptions
+- All fields must be present (use empty arrays/strings/0 if no data)
 
+Return the JSON now:`;
 
-Resume Text: """${resumeText}"""
+  const response = await openRouterQueue.add(() =>
+    fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${OPENROUTER_API_KEY}`,
+        "HTTP-Referer": "https://shortlistai.xyz",
+        "X-Title": "ShortlistAI",
+      },
+      body: JSON.stringify({
+        model: "openai/gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+        temperature: 0,
+        max_tokens: 4096,
+      }),
+    })
+  );
 
-Job Description: """${jobDescription}"""`;
-
-  // 1. Define Interface to prevent type inference errors
-  interface ModelTier {
-    id: string;
-    name: string;
-    endpoint: string;
-    apiKey: string | undefined;
-    headers: Record<string, string>; // Enforces that ALL values are strings
-    enabled: boolean;
-    maxRetries: number;
-    timeout: number;
+  if (!response.ok) {
+    const errorBody = await response.text();
+    console.error("OpenRouter API error:", response.status, errorBody);
+    throw new Error(`OpenRouter API error: ${response.statusText}`);
   }
 
-  // 2. Configure Model Tiers with explicit typing
-  const MODEL_TIERS: ModelTier[] = [
-    
-    {
-      id: "deepseek/deepseek-v3.2",
-      name: "deepseek/deepseek-v3.2",
-      endpoint: "https://openrouter.ai/api/v1/chat/completions",
-      apiKey: OPENROUTER_API_KEY,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
-        "X-Title": "Resume Optimizer",
-      },
-      enabled: !!OPENROUTER_API_KEY,
-      maxRetries: 2,
-      timeout: 30000,
-    },
-    {
-      id: "z-ai/glm-4.5-air:free",
-      name: "z-ai/glm-4.5-air:free",
-      endpoint: "https://openrouter.ai/api/v1/chat/completions",
-      apiKey: OPENROUTER_API_KEY,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
-        "X-Title": "Resume Optimizer",
-      },
-      enabled: !!OPENROUTER_API_KEY,
-      maxRetries: 2,
-      timeout: 30000,
-    },
-     {
-    id: "llama3-70b-8192",
-    name: "Llama 3.1 70B (Groq)",
-    endpoint: "https://api.groq.com/openai/v1/chat/completions",
-    apiKey: GROK_API_KEY,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${GROK_API_KEY}`,
-    },
-    enabled: !!GROK_API_KEY,
-    maxRetries: 1,
-    timeout: 15000,
-  },
-     {
-      id: "openrouter-gpt4o",
-      name: "openai/gpt-4o-mini",
-      endpoint: "https://openrouter.ai/api/v1/chat/completions",
-      apiKey: OPENROUTER_API_KEY,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
-        "X-Title": "Resume Optimizer",
-      },
-      enabled: !!OPENROUTER_API_KEY,
-      maxRetries: 2,
-      timeout: 30000,
-    },
-    {
-    id: "groq-primary",
-    name: "openai/gpt-oss-20b", // Use a valid Groq model name
-    endpoint: "https://api.groq.com/openai/v1/chat/completions", // Use the Groq endpoint
-    apiKey: GROK_API_KEY,
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${GROK_API_KEY}`,
-    },
-    enabled: !!GROK_API_KEY, // Enable this tier if the key exists
-    maxRetries: 2,
-    timeout: 30000,
-  },
-   
-    {
-      id: "openrouter-gemini",
-      name: "google/gemini-2.0",
-      endpoint: "https://openrouter.ai/api/v1/chat/completions",
-      apiKey: OPENROUTER_API_KEY,
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.NEXT_PUBLIC_URL || "https://resume-optimizer.com",
-        "X-Title": "Resume Optimizer",
-      },
-      enabled: !!OPENROUTER_API_KEY,
-      maxRetries: 1,
-      timeout: 25000,
-    },
-  ];
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
 
-  const retryWithBackoff = async (
-    fn: () => Promise<Response>,
-    maxRetries: number,
-    baseDelay: number = 1000
-  ): Promise<Response> => {
-    for (let attempt = 0; attempt <= maxRetries; attempt++) {
-      try {
-        const response = await fn();
-        if (response.status === 429) {
-          const errorBody = await response.text();
-          console.warn(`⚠️ Rate limit hit (429). Attempt ${attempt + 1}/${maxRetries + 1}`);
-          if (attempt < maxRetries) {
-            const delay = baseDelay * Math.pow(2, attempt);
-            await new Promise(resolve => setTimeout(resolve, delay));
-            continue;
-          }
-        }
-        return response;
-      } catch (error) {
-        if (attempt === maxRetries) throw error;
-        const delay = baseDelay * Math.pow(2, attempt);
-        await new Promise(resolve => setTimeout(resolve, delay));
-      }
-    }
-    throw new Error("Max retries exceeded");
-  };
-
-  let lastError: Error | null = null;
-  const activeTiers = MODEL_TIERS.filter(t => t.enabled);
-
-  for (let i = 0; i < activeTiers.length; i++) {
-    const tier = activeTiers[i];
-    
-    try {
-      console.log(`🤖 Attempting Model Tier ${i + 1}/${activeTiers.length}: ${tier.name}`);
-      
-      const makeRequest = async () => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), tier.timeout);
-        
-        try {
-          const response = await fetch(tier.endpoint, {
-            method: "POST",
-            headers: tier.headers, // Now guaranteed to be Record<string, string>
-            body: JSON.stringify({
-              model: tier.name === "grok-beta" ? "grok-beta" : tier.name,
-              messages: [{ role: "user", content: prompt }],
-              response_format: { type: "json_object" },
-              max_tokens: 4000,
-              temperature: 0.3,
-            }),
-            signal: controller.signal,
-          });
-          clearTimeout(timeoutId);
-          return response;
-        } catch (error) {
-          clearTimeout(timeoutId);
-          throw error;
-        }
-      };
-
-      const response = await retryWithBackoff(makeRequest, tier.maxRetries);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      const data = await response.json();
-      const messageContent = data.choices[0].message.content;
-      
-      if (!messageContent?.trim()) throw new Error('Empty response');
-      
-      try {
-        const result = JSON.parse(messageContent);
-        result._metadata = { model: tier.name, provider: tier.id.includes('grok') ? 'x.ai' : 'openrouter' };
-        return result;
-      } catch (parseError) {
-        throw new Error('Invalid JSON structure received');
-      }
-
-    } catch (error) {
-      console.error(`❌ Tier failed: ${tier.name}`, error);
-      lastError = error as Error;
-      if (i < activeTiers.length - 1) continue;
-    }
+  if (!content) {
+    throw new Error("No content received from OpenRouter API");
   }
-  
-  throw new Error(`All analysis models failed. Last error: ${lastError?.message || 'Unknown error'}`);
+
+  try {
+    const result = JSON.parse(content) as LLMExtractionResult;
+    return result;
+  } catch (parseError) {
+    console.error("Failed to parse LLM response:", content);
+    throw new Error("LLM returned invalid JSON format");
+  }
 }
-
-
-
-

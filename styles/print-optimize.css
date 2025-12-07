@@ -1,0 +1,66 @@
+/* ===================================================================
+   RESUME PRINT OPTIMIZATION - Prevents Empty Pages & Optimizes PDF Generation
+   =================================================================== */
+
+@media print {
+  /* 1. Eliminate default page margins to prevent extra blank pages */
+  @page {
+    margin: 0;
+    size: A4;
+  }
+
+  /* 2. Reset body & html height to prevent overflows */
+  html, body {
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible;
+  }
+
+  /* 3. Hide empty elements that might force unnecessary page breaks */
+  *:empty {
+    display: none !important;
+  }
+
+  /* 4. Prevent breaks inside important sections */
+  .break-inside-avoid,
+  section,
+  article,
+  .work-item,
+  .education-item,
+  .project-item {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* 5. Ensure proper page breaking behavior for lists */
+  ul, ol {
+    page-break-inside: avoid;
+  }
+
+  /* 6. Prevent orphaned headings */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  /* 7. Optimize spacing for print */
+  * {
+    box-sizing: border-box;
+  }
+
+  /* 8. Ensure backgrounds and colors print correctly */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+
+/* ===================================================================
+   PDF PREVIEW OPTIMIZATION - iframe display
+   =================================================================== */
+.pdf-preview-container iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}

@@ -23,16 +23,27 @@ interface CompatibilityResult {
   keywordSuggestions?: Suggestion[];
   otherSuggestions?: Suggestion[];
   scoreBreakdown?: {
-    requiredSkills: number;
-    experience: number;
-    responsibilities: number;
-    education: number;
-    industry: number;
+    skills?: number;          // 0-35 points (new deterministic)
+    experience?: number;      // 0-20 points (new deterministic)
+    education?: number;       // 0-15 points (new deterministic)
+    responsibilities?: number; // 0-15 points (new deterministic)
+    title?: number;           // 0-10 points (new deterministic)
+    format?: number;          // 0-5 points (new deterministic)
+    // Old fields (backward compatibility)
+    requiredSkills?: number;
+    industry?: number;
   };
   confidence?: number;
   isValidJD?: boolean;
   isValidCV?: boolean;
   validationWarning?: string;
+  // New deterministic scoring fields
+  structuralFit?: boolean;
+  matchedSkills?: Array<{ skill: string; matchType: string; locations: string[] }>;
+  insufficentExperience?: boolean;
+  experienceRequired?: number;
+  experienceHas?: number;
+  rawLLMData?: any; // Full LLM extraction result for simulation
   analysisId?: string;
   resumeText?: string;
   jobDescription?: string;
@@ -72,7 +83,7 @@ export function AnalysisProvider({ children }: { children: React.ReactNode }) {
       // Set result
       setResult(data);
       setIsAnalyzing(false);
-      
+
       // Save to sessionStorage for persistence across navigation
       try {
         sessionStorage.setItem('currentAnalysisResult', JSON.stringify(data));

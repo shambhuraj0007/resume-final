@@ -28,16 +28,36 @@ export interface IAnalysisResult extends Document {
     matchedSkills: Array<{ skill: string; resumeFragment: string }>;
   };
   scoreBreakdown: {
-    requiredSkills: number;
-    experience: number;
-    responsibilities: number;
-    education: number;
-    industry: number;
+    skills?: number;          // 0-35 points (new deterministic)
+    experience?: number;      // 0-20 points (new deterministic)
+    education?: number;       // 0-15 points (new deterministic)
+    responsibilities?: number; // 0-15 points (new deterministic)
+    title?: number;           // 0-10 points (new deterministic)
+    format?: number;          // 0-5 points (new deterministic)
+    // Old fields (kept for backward compatibility)
+    requiredSkills?: number;
+    industry?: number;
   };
   confidence: number;
   isValidJD: boolean;
   isValidCV: boolean;
   validationWarning?: string;
+  // New fields for deterministic scoring
+  structuralFit?: boolean;
+  requiredSkills?: Array<{ name: string; importance: number; type: 'hard' | 'soft' }>;
+  matchedSkills?: Array<{ skill: string; matchType: string; locations: string[] }>;
+  experienceBreakdown?: {
+    requiredYears: number;
+    candidateYears: number;
+    requiredSeniority: string;
+    candidateSeniority: string;
+  };
+  educationBreakdown?: {
+    requiredDegree: string;
+    candidateDegree: string;
+    meetsMinimum: boolean;
+    bonusTierInstitution: boolean;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
@@ -136,16 +156,50 @@ const AnalysisResultSchema: Schema<IAnalysisResult> = new Schema(
       ],
     },
     scoreBreakdown: {
-      requiredSkills: Number,
-      experience: Number,
-      responsibilities: Number,
-      education: Number,
-      industry: Number,
+      skills: Number,          // 0-35 (new)
+      experience: Number,      // 0-20 (new)
+      education: Number,       // 0-15 (new)
+      responsibilities: Number, // 0-15 (new)
+      title: Number,           // 0-10 (new)
+      format: Number,          // 0-5 (new)
+      requiredSkills: Number,  // old (backward compat)
+      industry: Number,        // old (backward compat)
     },
     confidence: Number,
     isValidJD: Boolean,
     isValidCV: Boolean,
     validationWarning: String,
+    // New fields for deterministic scoring
+    structuralFit: Boolean,
+    requiredSkills: [
+      {
+        name: String,
+        importance: Number,
+        type: {
+          type: String,
+          enum: ['hard', 'soft'],
+        },
+      },
+    ],
+    matchedSkills: [
+      {
+        skill: String,
+        matchType: String,
+        locations: [String],
+      },
+    ],
+    experienceBreakdown: {
+      requiredYears: Number,
+      candidateYears: Number,
+      requiredSeniority: String,
+      candidateSeniority: String,
+    },
+    educationBreakdown: {
+      requiredDegree: String,
+      candidateDegree: String,
+      meetsMinimum: Boolean,
+      bonusTierInstitution: Boolean,
+    },
   },
   {
     timestamps: true,
