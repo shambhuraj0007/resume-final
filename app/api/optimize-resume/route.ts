@@ -139,7 +139,10 @@ export async function POST(req: NextRequest) {
       personalDetails: optimizedResumeData.personalDetails,
       objective: optimizedResumeData.objective || '',
       jobTitle: optimizedResumeData.jobTitle || '',
-      workExperience: optimizedResumeData.workExperience || [],
+      workExperience: (optimizedResumeData.workExperience || []).map((exp) => ({
+        ...exp,
+        description: Array.isArray(exp.description) ? exp.description.join('\n') : exp.description,
+      })),
       education: optimizedResumeData.education || [],
       skills: optimizedResumeData.skills || [],
       projects: optimizedResumeData.projects || [],
