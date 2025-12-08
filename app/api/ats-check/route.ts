@@ -356,7 +356,7 @@ TASK: Extract the following information in strict JSON format. Do not generate a
    - candidateCurrentTitle: string (current/most recent job title from resume)
    - candidateRecentTitles: array of recent job titles from resume
    - titleSimilarity: number 0.0-1.0 (how similar is candidate's title to JD title)
-   - suggestedTitle: string (an optimized title for the candidate based on the JD, if the current one is a mismatch. Otherwise empty string.)
+   - suggestedTitle: string (an optimized title for the candidate based on the JD, if the current one is a mismatch. Otherwise empty string;most of time unless it has low score <4 .)
 
 9. **formatSignals**:
    - hasStandardSections: boolean (does resume have clear experience/education/skills sections?)

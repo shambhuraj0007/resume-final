@@ -1,15 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Scale, FileText, AlertTriangle, CreditCard, ShieldCheck, UserX, Gavel, BookOpen, Mail, ChevronRight, Moon, Sun } from 'lucide-react';
+import { Scale, FileText, AlertTriangle, CreditCard, ShieldCheck, UserX, Gavel, BookOpen, Mail, ChevronRight, Moon, Sun, Truck } from 'lucide-react';
 
 export default function TermsPage() {
   const [activeSection, setActiveSection] = useState('acceptance');
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState('light');
 
   useEffect(() => {
     // Check for saved theme preference or default to system preference
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
+    const savedTheme = localStorage.getItem('theme');
     const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     const initialTheme = savedTheme || systemTheme;
     
@@ -60,6 +60,7 @@ export default function TermsPage() {
     { id: 'responsibilities', title: 'User Responsibilities', icon: AlertTriangle },
     { id: 'content', title: 'Use of Uploaded Content', icon: BookOpen },
     { id: 'payments', title: 'Payments & Billing', icon: CreditCard },
+    { id: 'shipping', title: 'Shipping & Delivery', icon: Truck },
     { id: 'intellectual', title: 'Intellectual Property', icon: Gavel },
     { id: 'termination', title: 'Termination', icon: UserX },
     { id: 'liability', title: 'Limitation of Liability', icon: ShieldCheck },
@@ -68,9 +69,6 @@ export default function TermsPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 transition-colors duration-300">
-      {/* Theme Toggle Button */}
-      
-
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
@@ -242,12 +240,30 @@ export default function TermsPage() {
                   </li>
                 </ul>
                 
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3 mt-6">Refunds</h3>
+                <h3 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-3 mt-6">Refund and Cancellation policy </h3>
                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-3">
-                  Refund eligibility, if offered, will follow the policy stated on our pricing page.
+                    Users may cancel their ShortlistAI subscription at any time through their account settings. When a subscription is cancelled, it will remain active until the end of the current billing period, after which it will automatically downgrade to the free plan. Fees already paid are non-refundable, and we do not offer prorated refunds for partial use, except where required by law. If you are on a free trial, you may cancel before the trial ends to avoid being charged. Refund requests made after billing has occurred are generally not eligible, unless a clear billing error is demonstrated. All applicable refunds, when approved, will be processed back to the original payment method in accordance with Razorpay’s settlement timelines
                 </p>
+              </section>
+
+              {/* Shipping & Delivery Policy */}
+              <section id="shipping" className="mb-12 scroll-mt-24">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="p-2 bg-cyan-100 dark:bg-cyan-900/30 rounded-lg">
+                    <Truck className="w-6 h-6 text-cyan-600 dark:text-cyan-400" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-gray-900 dark:text-white">Shipping & Delivery Policy</h2>
+                </div>
+                <p className="text-gray-700 dark:text-gray-300 leading-relaxed mb-4">
+                  ShortlistAI is a fully digital service, and access to premium features is typically activated <strong>instantly</strong> upon successful payment.
+                </p>
+                <div className="p-4 bg-cyan-50 dark:bg-cyan-900/20 border-l-4 border-cyan-500 dark:border-cyan-400 rounded mb-4">
+                  <p className="text-sm text-cyan-900 dark:text-cyan-300">
+                    In rare cases of technical delay or unforeseen circumstances, access may take longer; in such situations, Mindmach Technologies will ensure that your subscription is activated <strong>within 48 hours</strong>.
+                  </p>
+                </div>
                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
-                  Content generated or processed through the platform is non-returnable.
+                  No physical goods are shipped as part of this service.
                 </p>
               </section>
 
@@ -358,7 +374,7 @@ export default function TermsPage() {
                     <p className="text-gray-700 dark:text-gray-300">
                       Email: <a href="mailto:hello@shortlistAI.xyz" 
                       className="text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 dark:hover:text-indigo-300 font-medium underline">
-                        hello@shortlistAI.xyz
+                        [hello@shortlistAI.xyz](mailto:hello@shortlistAI.xyz)
                       </a>
                     </p>
                   </div>
