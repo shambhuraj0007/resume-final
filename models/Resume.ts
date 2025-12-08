@@ -10,7 +10,7 @@ interface IPersonalDetails {
   location: string;
 }
 
-interface IWorkExperience {
+export interface IWorkExperience {
   jobTitle: string;
   companyName: string;
   location: string;
