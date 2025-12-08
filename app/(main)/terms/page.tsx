@@ -335,6 +335,9 @@ export default function TermsPage() {
                 <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
                   These Terms are governed by the applicable laws of <strong>India</strong> unless otherwise required by local regulations.
                 </p>
+                <p className="text-gray-700 pt-2 dark:text-gray-300 leading-relaxed">
+                 ShortlistAI.xyz is a product built and operated by MindMach Technologies Private Limited.
+                </p>
               </section>
 
               {/* Contact Section */}

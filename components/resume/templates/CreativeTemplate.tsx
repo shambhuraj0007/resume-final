@@ -5,7 +5,15 @@ import type { TemplateProps } from './types';
 import { Textarea } from '@/components/ui/textarea';
 import DOMPurify from 'isomorphic-dompurify';
 
+import { Open_Sans } from 'next/font/google';
+
+const openSans = Open_Sans({
+  subsets: ['latin'],
+  display: 'swap',
+});
+
 export function CreativeTemplate({ resumeData, isEditing, updateField }: TemplateProps) {
+  // ... (renderMarkdown and renderInput implementation remains same) ...
   const renderMarkdown = useCallback((text: string): string => {
     if (!text) return '';
     const processed = text
@@ -103,7 +111,7 @@ export function CreativeTemplate({ resumeData, isEditing, updateField }: Templat
   }, []);
 
   return (
-    <div className="w-full mx-auto bg-white" style={{ fontFamily: 'Helvetica, Arial, sans-serif' }}>
+    <div className={`w-full mx-auto bg-white ${openSans.className}`} style={{}}>
       {/* Creative Header with Purple Accent */}
       <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white px-10 py-8 avoid-break">
         <div className="flex items-end gap-4">

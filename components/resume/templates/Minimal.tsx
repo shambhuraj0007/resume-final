@@ -6,7 +6,15 @@ import { Textarea } from '@/components/ui/textarea';
 import DOMPurify from 'isomorphic-dompurify';
 
 
+import { Inter } from 'next/font/google';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+});
+
 export function MinimalTemplate({ resumeData, isEditing, updateField }: TemplateProps) {
+  // ... (renderMarkdown and renderInput implementation remains same) ...
   const renderMarkdown = useCallback((text: string): string => {
     if (!text) return '';
     const processed = text
@@ -173,9 +181,8 @@ export function MinimalTemplate({ resumeData, isEditing, updateField }: Template
       `}</style>
 
       <div
-        className="resume-page w-full max-w-[8.5in] mx-auto bg-white px-12 py-10"
+        className={`resume-page w-full max-w-[8.5in] mx-auto bg-white px-12 py-10 ${inter.className}`}
         style={{
-          fontFamily: 'Arial, sans-serif',
           fontSize: '11pt',
           lineHeight: '1.15'
         }}

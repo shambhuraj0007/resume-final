@@ -5,7 +5,16 @@ import type { TemplateProps } from './types';
 import { Textarea } from '@/components/ui/textarea';
 import DOMPurify from 'isomorphic-dompurify';
 
+import { Roboto } from 'next/font/google';
+
+const roboto = Roboto({
+  subsets: ['latin'],
+  weight: ['400', '700'],
+  display: 'swap',
+});
+
 export function ProfessionalTemplate({ resumeData, isEditing, updateField }: TemplateProps) {
+  // ... (renderMarkdown and renderInput implementation remains same) ...
   const renderMarkdown = useCallback((text: string): string => {
     if (!text) return '';
     const processed = text
@@ -55,9 +64,9 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
         }
         if (type === 'mail') {
           return (
-            <a 
-              href={`mailto:${value}`} 
-              className={`hover:underline ${className}`} 
+            <a
+              href={`mailto:${value}`}
+              className={`hover:underline ${className}`}
               aria-label={ariaLabel}
             >
               {value}
@@ -66,9 +75,9 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
         }
         if (type === 'phone') {
           return (
-            <a 
-              href={`tel:${value}`} 
-              className={`hover:underline ${className}`} 
+            <a
+              href={`tel:${value}`}
+              className={`hover:underline ${className}`}
               aria-label={ariaLabel}
             >
               {value}
@@ -114,10 +123,9 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
   }, []);
 
   return (
-    <div 
-      className="w-full max-w-[8.5in] mx-auto bg-white px-[0.75in] py-[0.75in]" 
-      style={{ 
-        fontFamily: '"Latin Modern Sans", "Computer Modern Sans", "Helvetica Neue", Arial, sans-serif',
+    <div
+      className={`w-full max-w-[8.5in] mx-auto bg-white px-[0.75in] py-[0.75in] ${roboto.className}`}
+      style={{
         fontSize: '10pt',
         lineHeight: '1.3',
         color: '#000000'
@@ -125,8 +133,8 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
     >
       {/* Header Section - LaTeX style */}
       <header className="mb-6 break-inside-avoid">
-        <h1 
-          className="text-center font-bold mb-2" 
+        <h1
+          className="text-center font-bold mb-2"
           style={{ fontSize: '20pt', letterSpacing: '0.5px' }}
         >
           {renderInput({
@@ -136,7 +144,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
             ariaLabel: 'Full name',
           })}
         </h1>
-        
+
         {/* Contact Info - Compact LaTeX style */}
         <div className="text-center text-gray-900" style={{ fontSize: '9pt' }}>
           <div className="flex justify-center items-center flex-wrap gap-x-3 gap-y-1">
@@ -212,7 +220,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Professional Summary */}
       {hasContent(resumeData.objective) && (
         <section aria-labelledby="summary" className="mb-5 break-inside-avoid">
-          <h2 
+          <h2
             id="summary"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -232,7 +240,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Education Section */}
       {hasContent(resumeData.education) && (
         <section aria-labelledby="education" className="mb-5">
-          <h2 
+          <h2
             id="education"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -300,7 +308,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Work Experience Section */}
       {hasContent(resumeData.workExperience) && (
         <section aria-labelledby="experience" className="mb-5">
-          <h2 
+          <h2
             id="experience"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -366,7 +374,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Projects Section */}
       {hasContent(resumeData.projects) && (
         <section aria-labelledby="projects" className="mb-5">
-          <h2 
+          <h2
             id="projects"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -412,7 +420,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Skills Section */}
       {hasContent(resumeData.skills) && (
         <section aria-labelledby="skills" className="mb-5">
-          <h2 
+          <h2
             id="skills"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -458,7 +466,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Certifications Section */}
       {hasContent(resumeData.certifications) && (
         <section aria-labelledby="certifications" className="mb-5">
-          <h2 
+          <h2
             id="certifications"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -504,7 +512,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
       {/* Languages Section */}
       {hasContent(resumeData.languages) && (
         <section aria-labelledby="languages" className="mb-5">
-          <h2 
+          <h2
             id="languages"
             className="font-bold mb-2 pb-1 border-b border-gray-900"
             style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
@@ -538,7 +546,7 @@ export function ProfessionalTemplate({ resumeData, isEditing, updateField }: Tem
         <>
           {resumeData.customSections.map((custom, idx) => (
             <section key={idx} aria-labelledby={`custom-${idx}`} className="mb-5 break-inside-avoid">
-              <h2 
+              <h2
                 id={`custom-${idx}`}
                 className="font-bold mb-2 pb-1 border-b border-gray-900 uppercase"
                 style={{ fontSize: '11pt', letterSpacing: '0.3px' }}
