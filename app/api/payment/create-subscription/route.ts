@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
             if (!plan.planId) return NextResponse.json({ error: "Configuration Error: Missing Cashfree Plan ID" }, { status: 500 });
 
             const customerPhone = user.phone || "9999999999";
-            const returnUrl = `${process.env.NEXTAUTH_URL}/payment/status`;
+            const returnUrl = `${process.env.NEXTAUTH_URL}/payment`;
 
             const cfSub = await createCashfreeSubscription(
                 plan.planId,
