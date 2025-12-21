@@ -7,11 +7,19 @@ export interface ITransaction extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
+  // Cashfree fields
+  cfOrderId?: string;
+  cfPaymentId?: string;
+  // PayPal fields
+  paypalOrderId?: string;
+  paypalSubscriptionId?: string;
+
+  gateway: 'RAZORPAY' | 'CASHFREE' | 'PAYPAL';
   amount: number;
   currency: string;
   credits: number;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
-  packageType: 'starter' | 'basic' | 'pro' | 'premium';
+  packageType: string; // Changed to string to support various pack names
   validityMonths: number;
   paymentMethod?: string;
   failureReason?: string;
@@ -35,6 +43,21 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
     razorpayOrderId: String,
     razorpayPaymentId: String,
     razorpaySignature: String,
+
+    // Cashfree
+    cfOrderId: String,
+    cfPaymentId: String,
+
+    // PayPal
+    paypalOrderId: String,
+    paypalSubscriptionId: String,
+
+    gateway: {
+      type: String,
+      enum: ['RAZORPAY', 'CASHFREE', 'PAYPAL'],
+      required: true,
+      default: 'RAZORPAY' // For backward compatibility
+    },
     amount: {
       type: Number,
       required: true,
@@ -54,7 +77,6 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
     },
     packageType: {
       type: String,
-      enum: ['starter', 'basic', 'pro', 'premium'],
       required: true,
     },
     validityMonths: {

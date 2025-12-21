@@ -7,7 +7,7 @@ import { getUserCredits } from '@/payment/creditService';
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    
+
     if (!session || !session.user?.email) {
       return NextResponse.json(
         {
@@ -21,11 +21,11 @@ export async function GET(req: NextRequest) {
     }
 
     await connectDB();
-    
+
     // Get user from session
     const User = (await import('@/models/User')).default;
     const user = await User.findOne({ email: session.user.email });
-    
+
     if (!user) {
       return NextResponse.json(
         { error: 'User not found' },
@@ -35,11 +35,13 @@ export async function GET(req: NextRequest) {
 
     const userId = (user._id as any).toString();
     const credit = await getUserCredits(userId);
-    
+
     return NextResponse.json({
       credits: credit.credits,
       expiryDate: credit.expiryDate,
       hasExpired: credit.expiryDate ? new Date() > credit.expiryDate : false,
+      subscriptionStatus: user.subscriptionStatus,
+      isPro: user.subscriptionStatus === 'active',
     });
   } catch (error) {
     console.error('Error fetching credit balance:', error);

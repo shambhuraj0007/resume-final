@@ -17,6 +17,9 @@ interface InsufficientCreditsModalProps {
   onOpenChange: (open: boolean) => void;
   onUpgrade: () => void;
   requiredCredits?: number;
+  title?: string;
+  description?: string;
+  actionLabel?: string;
 }
 
 export default function InsufficientCreditsModal({
@@ -24,6 +27,9 @@ export default function InsufficientCreditsModal({
   onOpenChange,
   onUpgrade,
   requiredCredits = 1,
+  title = "Insufficient Credits",
+  description = "You don't have enough credits to perform this action.",
+  actionLabel = "Buy Credits"
 }: InsufficientCreditsModalProps) {
   const handleUpgrade = () => {
     onOpenChange(false);
@@ -36,17 +42,17 @@ export default function InsufficientCreditsModal({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <AlertCircle className="h-5 w-5 text-yellow-500" />
-            Insufficient Credits
+            {title}
           </DialogTitle>
           <DialogDescription>
-            You don't have enough credits to perform this action.
+            {description}
           </DialogDescription>
         </DialogHeader>
 
         <Alert>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
-            This action requires {requiredCredits} {requiredCredits === 1 ? 'credit' : 'credits'}. 
+            This action requires {requiredCredits} {requiredCredits === 1 ? 'credit' : 'credits'}.
             Purchase more credits to continue using our services.
           </AlertDescription>
         </Alert>
@@ -71,7 +77,7 @@ export default function InsufficientCreditsModal({
             Cancel
           </Button>
           <Button onClick={handleUpgrade}>
-            Buy Credits
+            {actionLabel}
           </Button>
         </DialogFooter>
       </DialogContent>

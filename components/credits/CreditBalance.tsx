@@ -1,11 +1,12 @@
 'use client';
 
 import { memo } from 'react';
-import { Coins, AlertCircle, Calendar } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Coins, AlertCircle, Calendar, Award } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { format } from 'date-fns';
+import { format, formatDistanceToNow } from 'date-fns';
 import { useCredits } from '@/hooks/useCredits';
 
 interface CreditBalanceProps {
@@ -13,7 +14,8 @@ interface CreditBalanceProps {
 }
 
 function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
-  const { balance, loading } = useCredits();
+  const router = useRouter();
+  const { balance, loading, isPro } = useCredits();
 
   if (loading) {
     return (
@@ -37,55 +39,100 @@ function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
   const credits = balance?.credits ?? 0;
   const expiryDate = balance?.expiryDate;
   const hasExpired = balance?.hasExpired ?? false;
-  const isLowCredits = credits <= 1;
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Coins className="h-5 w-5" />
-          Credit Balance
+          {isPro ? <Award className="h-5 w-5 text-purple-600" /> : <Coins className="h-5 w-5" />}
+          {isPro ? "Current Plan" : "Credit Balance"}
         </CardTitle>
         <CardDescription>
-          Use credits to analyze resumes
+          {isPro ? "Manage your subscription" : "Use credits to analyze resumes"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-3xl font-bold">{credits ?? 0}</p>
-            <p className="text-sm text-muted-foreground">
-              {credits === 1 ? 'Credit' : 'Credits'} remaining
-            </p>
-          </div>
-          {onUpgradeClick && (
-            <Button onClick={onUpgradeClick} variant="default">
-              Buy Credits
-            </Button>
-          )}
-        </div>
-
-        {expiryDate && !hasExpired && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Calendar className="h-4 w-4" />
-            <span>Expires on {format(new Date(expiryDate), 'MMM dd, yyyy')}</span>
+        {/* Subscriber View */}
+        {isPro && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
+              <div>
+                <p className="font-semibold text-purple-900 dark:text-purple-100">Pro Monthly</p>
+                <p className="text-xs text-purple-700 dark:text-purple-300">
+                  Renews: {expiryDate ? format(new Date(expiryDate), 'MMM dd, yyyy') : 'N/A'}
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 text-xs"
+                onClick={() => router.push('/pricing')}
+              >
+                Change Plan
+              </Button>
+            </div>
           </div>
         )}
 
-        {hasExpired && (
+        {/* Non-Pro View (Pack or Free) */}
+        {!isPro && (
+          <div className="space-y-4">
+            {/* Plan Status Header */}
+            <div className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-900 border rounded-lg">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-sm">Plan: Free</span>
+                <span className="text-xs bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600">Active</span>
+              </div>
+              {credits === 0 && (
+                <span className="text-xs text-muted-foreground">Limited Access</span>
+              )}
+            </div>
+
+            {/* Credits Section */}
+            {credits > 0 ? (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-3xl font-bold">{credits}</p>
+                    <p className="text-sm text-muted-foreground">
+                      Credits left
+                    </p>
+                  </div>
+                  {onUpgradeClick && (
+                    <Button onClick={onUpgradeClick} variant="default">
+                      Upgrade
+                    </Button>
+                  )}
+                </div>
+                {expiryDate && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground bg-slate-100 dark:bg-slate-800 p-2 rounded">
+                    <Calendar className="h-3 w-3" />
+                    <span>Expires in {formatDistanceToNow(new Date(expiryDate))}</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Zero Credits / Free User Section */
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground px-1">
+                  3 scans remaining this month (rolling)
+                </p>
+                {onUpgradeClick && (
+                  <Button onClick={onUpgradeClick} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+                    Upgrade to Pro
+                  </Button>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Alerts */}
+        {hasExpired && !isPro && (
           <Alert variant="destructive">
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              Your credits have expired. Purchase new credits to continue.
-            </AlertDescription>
-          </Alert>
-        )}
-
-        {isLowCredits && !hasExpired && (
-          <Alert>
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              You're running low on credits. Consider purchasing more to continue analyzing resumes.
+              Your credits have expired.
             </AlertDescription>
           </Alert>
         )}

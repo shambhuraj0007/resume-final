@@ -107,7 +107,7 @@ export default function JobMatchPage() {
     shouldNavigateOnAnalyze: false,
   };
 
-  const { balance, checkCredits, refreshBalance } = useCredits();
+  const { balance, checkCredits, refreshBalance, isPro } = useCredits();
   const { isAnalyzing, result, startAnalysis, clearResult } = useAnalysis();
 
   // Validation State
@@ -1507,7 +1507,7 @@ export default function JobMatchPage() {
                   {/* All Suggestions Tab */}
                   <TabsContent value="all" className="mt-4">
                     <Accordion type="single" collapsible className="w-full">
-                      {result.suggestions.map((item, idx) => (
+                      {(isPro ? result.suggestions : result.suggestions.slice(0, 3)).map((item, idx) => (
                         <AccordionItem
                           key={idx}
                           value={`all-${idx}`}
@@ -1605,6 +1605,28 @@ export default function JobMatchPage() {
                         </AccordionItem>
                       ))}
                     </Accordion>
+                    {!isPro && result.suggestions.length > 3 && (
+                      <div className="relative mt-4 p-6 border rounded-lg bg-slate-50 dark:bg-slate-900 overflow-hidden text-center">
+                        <div className="absolute inset-0 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 bg-white/50 dark:bg-black/50">
+                          <p className="text-lg font-semibold mb-2 text-slate-800 dark:text-slate-200">
+                            Unlock {result.suggestions.length - 3} More Suggestions
+                          </p>
+                          <Button
+                            onClick={() => setShowUpgradeModal(true)}
+                            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg"
+                          >
+                            <Sparkles className="w-4 h-4 mr-2" />
+                            Upgrade to Unlock All
+                          </Button>
+                        </div>
+                        {/* Fake blurred items behind */}
+                        <div className="space-y-4 opacity-50 blur-sm pointer-events-none select-none">
+                          <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+                          <div className="h-24 bg-gray-100 dark:bg-gray-800 rounded w-full"></div>
+                          <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+                        </div>
+                      </div>
+                    )}
                   </TabsContent>
 
                   {/* Text Improvements Tab */}
@@ -1943,6 +1965,9 @@ export default function JobMatchPage() {
           setShowUpgradeModal(true);
         }}
         requiredCredits={1}
+        title={!isPro ? "Limit Reached" : "Credits Exhausted"}
+        description={!isPro ? "You have reached the limit of your current plan. Upgrade to unlock unlimited analyses." : "You have used all your available credits. Purchase more to continue."}
+        actionLabel={!isPro ? "Upgrade to Pro" : "Buy Credits"}
       />
 
       <UpgradeModal

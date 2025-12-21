@@ -11,8 +11,10 @@ import { useSession } from "next-auth/react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { useCredits } from "@/hooks/useCredits";
+import { useUserStatus } from "@/hooks/useUserStatus";
 import InsufficientCreditsModal from "@/components/credits/InsufficientCreditsModal";
 import UpgradeModal from "@/components/credits/UpgradeModal";
+import { WatermarkOverlay } from "@/components/resume/WatermarkOverlay";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -64,6 +66,7 @@ export default function ResumeOptimizerPage() {
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
 
   const { balance, checkCredits, refreshBalance } = useCredits();
+  const { isPro, loading: userStatusLoading } = useUserStatus();
 
   const updateField = <T extends keyof ResumeData>(
     section: T,
@@ -488,6 +491,12 @@ export default function ResumeOptimizerPage() {
         description: "Please generate an optimized resume first.",
         variant: "destructive",
       });
+      return;
+    }
+
+    // Check if user is Pro before allowing download
+    if (!isPro) {
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -1076,82 +1085,83 @@ export default function ResumeOptimizerPage() {
 
 
           {/* Right Panel - Scrollable Preview */}
- {/* Reduced padding slightly to give more room */}
-  {optimizedResume ? (
-    <>
-      {selectedTemplate === "latex" ? (
-        <Card className="border-2 border-slate-200 dark:border-slate-700 h-full flex flex-col">
-          {/* ... (LaTeX Header Code remains same) ... */}
-          <CardContent className="p-0 flex-1 min-h-0">
-             {/* ... (LaTeX Content Code remains same) ... */}
-          </CardContent>
-        </Card>
-      ) : showPreview ? (
-        <div className="w-full h-full flex flex-col">
-          {isPreviewLoading || !previewPdfUrl ? (
-             // ... (Loading State remains same) ...
-             <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
-                {/* Loading Spinner Code */}
-                <div className="relative w-16 h-16 mb-4">
-                  <div className="absolute inset-0 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
-                  <div className="absolute inset-0 border-4 border-violet-600 border-t-transparent rounded-full animate-spin" />
+          {/* Reduced padding slightly to give more room */}
+          {optimizedResume ? (
+            <>
+              {selectedTemplate === "latex" ? (
+                <Card className="border-2 border-slate-200 dark:border-slate-700 h-full flex flex-col">
+                  {/* ... (LaTeX Header Code remains same) ... */}
+                  <CardContent className="p-0 flex-1 min-h-0">
+                    {/* ... (LaTeX Content Code remains same) ... */}
+                  </CardContent>
+                </Card>
+              ) : showPreview ? (
+                <div className="w-full h-full flex flex-col">
+                  {isPreviewLoading || !previewPdfUrl ? (
+                    // ... (Loading State remains same) ...
+                    <div className="flex flex-col items-center justify-center h-full min-h-[400px]">
+                      {/* Loading Spinner Code */}
+                      <div className="relative w-16 h-16 mb-4">
+                        <div className="absolute inset-0 border-4 border-violet-200 dark:border-violet-900 rounded-full" />
+                        <div className="absolute inset-0 border-4 border-violet-600 border-t-transparent rounded-full animate-spin" />
+                      </div>
+                      <h3 className="text-base font-semibold text-violet-900 dark:text-violet-100 mb-1">Generating PDF Preview...</h3>
+                    </div>
+                  ) : (
+                    <div className="w-full h-full flex-1 relative">
+                      <WatermarkOverlay show={!isPro} />
+                      <iframe
+                        src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} // Added view=FitH
+                        className="w-full h-[calc(100vh-5rem)] border-2 border-slate-200 dark:border-slate-700 rounded-lg shadow-lg" // Increased height
+                        title="PDF Preview"
+                      />
+                    </div>
+                  )}
                 </div>
-                <h3 className="text-base font-semibold text-violet-900 dark:text-violet-100 mb-1">Generating PDF Preview...</h3>
-             </div>
+              ) : isEditing && TemplateComponent ? (
+                <div className="w-full h-full flex justify-center overflow-visible">
+                  <div
+                    id="resume-content"
+                    className="resume-preview-optimizer bg-white shadow-2xl"
+                    style={{
+                      fontFamily: optimizedResume.fontFamily || 'DM Sans',
+                      width: '21cm', // Keep A4 width ratio
+                      minHeight: '29.7cm', // A4 Height
+                      margin: '0 auto',
+                      padding: '0', // Let template handle padding or keep minimal
+                      boxSizing: 'border-box',
+                      position: 'relative',
+                      transform: 'scale(0.95)', // Increased scale from 0.8 to 0.95
+                      transformOrigin: 'top center'
+                    }}
+                  >
+                    <TemplateComponent
+                      resumeData={optimizedResume}
+                      isEditing={isEditing}
+                      updateField={updateField}
+                    />
+                  </div>
+                </div>
+              ) : (
+                // ... (Hidden Preview State remains same) ...
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center space-y-3 p-8">
+                    <Eye className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto" />
+                    <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Preview Hidden</p>
+                  </div>
+                </div>
+              )}
+            </>
           ) : (
-            <div className="w-full h-full flex-1">
-              <iframe
-                src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`} // Added view=FitH
-                className="w-full h-[calc(100vh-5rem)] border-2 border-slate-200 dark:border-slate-700 rounded-lg shadow-lg" // Increased height
-                title="PDF Preview"
-              />
+            // ... (Empty State remains same) ...
+            <div className="flex items-center justify-center h-full">
+              <p>Ready to Optimize</p>
             </div>
           )}
         </div>
-      ) : isEditing && TemplateComponent ? (
-        <div className="w-full h-full flex justify-center overflow-visible">
-          <div
-            id="resume-content"
-            className="resume-preview-optimizer bg-white shadow-2xl"
-            style={{
-              fontFamily: optimizedResume.fontFamily || 'DM Sans',
-              width: '21cm', // Keep A4 width ratio
-              minHeight: '29.7cm', // A4 Height
-              margin: '0 auto',
-              padding: '0', // Let template handle padding or keep minimal
-              boxSizing: 'border-box',
-              position: 'relative',
-              transform: 'scale(0.95)', // Increased scale from 0.8 to 0.95
-              transformOrigin: 'top center'
-            }}
-          >
-            <TemplateComponent
-              resumeData={optimizedResume}
-              isEditing={isEditing}
-              updateField={updateField}
-            />
-          </div>
-        </div>
-      ) : (
-        // ... (Hidden Preview State remains same) ...
-        <div className="flex items-center justify-center h-full">
-            <div className="text-center space-y-3 p-8">
-                <Eye className="h-12 w-12 text-slate-300 dark:text-slate-700 mx-auto" />
-                <p className="text-sm font-medium text-slate-600 dark:text-slate-400">Preview Hidden</p>
-            </div>
-        </div>
-      )}
-    </>
-  ) : (
-    // ... (Empty State remains same) ...
-    <div className="flex items-center justify-center h-full">
-        <p>Ready to Optimize</p>
-    </div>
-  )}
-</div>
 
-        </div>
       </div>
-   
+    </div>
+
   );
 }

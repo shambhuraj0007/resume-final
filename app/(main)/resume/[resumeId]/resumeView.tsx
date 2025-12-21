@@ -34,6 +34,10 @@ import { motion } from 'framer-motion';
 import debounce from 'lodash/debounce';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
+import { useCredits } from "@/hooks/useCredits";
+import { useUserStatus } from "@/hooks/useUserStatus";
+import UpgradeModal from "@/components/credits/UpgradeModal";
+import { WatermarkOverlay } from "@/components/resume/WatermarkOverlay";
 
 
 const TEMPLATES = {
@@ -202,7 +206,17 @@ export default function ResumeView({
   }, [showPdfPreview, selectedTemplate, accentColor, fontFamily, sectionOrder, showIcons, resumeData]);
 
 
+  /* Pro Status Check */
+  const { isPro, loading: userStatusLoading } = useUserStatus();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   const handleDownload = async () => {
+    // Lock for Free Users
+    if (!isPro) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     setIsDownloading(true);
     try {
       const queryParams = new URLSearchParams({
@@ -540,6 +554,18 @@ export default function ResumeView({
             position: 'relative',
           }}
         >
+          {/* Watermark for Free Users */}
+          {!isPro && (
+            <div className="absolute inset-0 z-50 pointer-events-none overflow-hidden select-none flex items-center justify-center">
+              <div className="absolute inset-0 flex flex-wrap items-center justify-center opacity-[0.05] -rotate-45 scale-150">
+                {Array.from({ length: 15 }).map((_, i) => (
+                  <div key={i} className="whitespace-nowrap text-7xl font-black text-slate-900 m-12">
+                    PREVIEW
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           {showPdfPreview ? (
             isPreviewLoading || !previewPdfUrl ? (
               <div className="flex flex-col items-center justify-center w-full h-[29.7cm] gap-3 bg-white rounded-lg">
@@ -547,7 +573,8 @@ export default function ResumeView({
                 <p className="text-sm text-slate-600">Generating PDF preview...</p>
               </div>
             ) : (
-              <div className="w-full min-h-[29.7cm] bg-white rounded-lg overflow-hidden border-0">
+              <div className="w-full min-h-[29.7cm] bg-white rounded-lg overflow-hidden border-0 relative">
+                <WatermarkOverlay show={!isPro} />
                 <iframe
                   src={`${previewPdfUrl}#toolbar=0&navpanes=0&scrollbar=0`}
                   className="w-full h-[calc(100vh-200px)] min-h-[29.7cm] border-0"
@@ -663,6 +690,7 @@ export default function ResumeView({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <UpgradeModal open={showUpgradeModal} onOpenChange={setShowUpgradeModal} />
 
       <style jsx global>{`
         /* ✅ EXACT match with download page and Puppeteer PDF */

@@ -15,6 +15,10 @@ export interface IUser extends Document {
   isVerified?: boolean; // Phone/email verification status
   provider: 'credentials' | 'google' | 'phone'; // Track auth provider
   credits: number; // User credits for premium features
+  region?: string;
+  subscriptionId?: string;
+  subscriptionStatus?: 'active' | 'past_due' | 'unpaid' | 'cancelled' | 'expired' | null;
+  subscriptionProvider?: 'CASHFREE' | 'PAYPAL' | null;
   settings: IUserSettings;
   createdAt: Date;
   updatedAt: Date;
@@ -24,7 +28,7 @@ const UserSchema: Schema<IUser> = new Schema(
   {
     email: {
       type: String,
-      required: function(this: IUser) {
+      required: function (this: IUser) {
         return !this.phone; // Email required only if no phone
       },
       unique: true,
@@ -60,6 +64,21 @@ const UserSchema: Schema<IUser> = new Schema(
       enum: ['credentials', 'google', 'phone'],
       default: 'credentials',
     },
+    region: {
+      type: String,
+      default: 'INDIA', // Default to India, will be updated by GeoIP
+    },
+    subscriptionId: String,
+    subscriptionStatus: {
+      type: String,
+      enum: ['active', 'past_due', 'unpaid', 'cancelled', 'expired', null],
+      default: null,
+    },
+    subscriptionProvider: {
+      type: String,
+      enum: ['CASHFREE', 'PAYPAL', null],
+      default: null,
+    },
     credits: {
       type: Number,
       default: 5, // Give 5 free credits to new users
@@ -68,7 +87,7 @@ const UserSchema: Schema<IUser> = new Schema(
     settings: {
       displayName: {
         type: String,
-        default: function(this: IUser) {
+        default: function (this: IUser) {
           return this.name || '';
         },
       },

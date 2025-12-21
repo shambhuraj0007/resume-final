@@ -6,6 +6,8 @@ interface CreditBalance {
   credits: number;
   expiryDate: string | null;
   hasExpired: boolean;
+  subscriptionStatus?: string;
+  isPro?: boolean;
 }
 
 let cachedBalance: CreditBalance | null = null;
@@ -66,7 +68,7 @@ export function useCredits() {
           console.log('Fetch aborted (expected in Strict Mode)');
           return; // Don't set error state for aborts
         }
-        
+
         if (isMounted) {
           setError('Failed to fetch balance');
           console.error('Error fetching credit balance:', err);
@@ -79,7 +81,7 @@ export function useCredits() {
     };
 
     fetchBalance();
-    
+
     return () => {
       isMounted = false;
       controller.abort();
@@ -105,7 +107,7 @@ export function useCredits() {
   const refreshBalance = useCallback(async () => {
     const controller = new AbortController();
     setLoading(true);
-    
+
     try {
       const response = await fetch('/api/credits/balance', {
         signal: controller.signal,
@@ -134,7 +136,7 @@ export function useCredits() {
         console.log('Refresh aborted');
         return;
       }
-      
+
       setError('Failed to fetch balance');
       console.error('Error fetching credit balance:', err);
     } finally {
@@ -149,5 +151,7 @@ export function useCredits() {
     checkCredits,
     refreshBalance,
     hasCredits: balance ? balance.credits > 0 && !balance.hasExpired : false,
+    isPro: balance?.isPro || false,
+    subscriptionStatus: balance?.subscriptionStatus || null,
   };
 }

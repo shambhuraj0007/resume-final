@@ -2,7 +2,7 @@
 
 import { useEffect, useState, lazy, Suspense } from 'react';
 import { useSession } from 'next-auth/react';
-import { redirect } from 'next/navigation';
+import { redirect, useRouter } from 'next/navigation';
 import CreditBalance from '@/components/credits/CreditBalance';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { BarChart3, Award, Loader2, Sparkles } from 'lucide-react';
@@ -14,6 +14,7 @@ const PaymentHistory = lazy(() => import('@/components/credits/PaymentHistory'))
 const UpgradeModal = lazy(() => import('@/components/credits/UpgradeModal'));
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { data: session, status } = useSession();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [totalAnalyses, setTotalAnalyses] = useState<number | null>(null);
@@ -77,9 +78,9 @@ export default function DashboardPage() {
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-10">
           <div className="sm:col-span-2 lg:col-span-1">
-            <CreditBalance onUpgradeClick={() => setUpgradeModalOpen(true)} />
+            <CreditBalance onUpgradeClick={() => router.push('/pricing')} />
           </div>
-          
+
           <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">

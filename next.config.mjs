@@ -10,12 +10,6 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // Ensure Chromium's brotli binaries are included in the serverless bundle
-  outputFileTracingIncludes: {
-    "/api/pdf": [
-      "./node_modules/@sparticuz/chromium/bin/**",
-    ],
-  },
   // Performance optimizations
   compress: true,
   poweredByHeader: false,
