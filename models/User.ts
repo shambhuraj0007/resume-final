@@ -6,6 +6,7 @@ export interface IUserSettings {
 }
 
 export interface IUser extends Document {
+  _id: any;
   email: string;
   name: string;
   phone?: string; // Phone number for SMS auth
