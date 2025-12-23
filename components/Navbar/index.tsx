@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/hooks/useAuth";
+import { useUserStatus } from "@/hooks/useUserStatus";
 import { Button } from "@/components/ui/button";
 import ThemeSwitch from "../ThemeSwitch";
 import {
@@ -43,6 +44,7 @@ export default function Navbar() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const { isSubscriber } = useUserStatus();
   const [settings, setSettings] = useState<Settings>({
     displayName: "",
     defaultTemplate: "modern",
@@ -100,7 +102,7 @@ export default function Navbar() {
               phoneUser?.name ||
               "User"}
           </span>
-          {session?.user?.subscriptionStatus === 'active' && (
+          {isSubscriber && (
             <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-[10px] font-bold text-white px-1.5 py-0.5 rounded ml-1 tracking-wide shadow-sm">
               PRO
             </span>

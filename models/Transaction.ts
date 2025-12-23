@@ -23,6 +23,7 @@ export interface ITransaction extends Document {
   validityMonths: number;
   paymentMethod?: string;
   failureReason?: string;
+  rawResponse?: any;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -85,6 +86,7 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
     },
     paymentMethod: String,
     failureReason: String,
+    rawResponse: Schema.Types.Mixed,
   },
   {
     timestamps: true,

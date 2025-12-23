@@ -10,6 +10,8 @@ interface User {
   email?: string;
   credits: number;
   isVerified: boolean;
+  subscriptionStatus?: string | null;
+  isPaidUser?: boolean;
 }
 
 export function useAuth() {

@@ -1,4 +1,4 @@
-import maxmind, { CountryResponse } from 'maxmind';
+import { Reader, CountryResponse } from 'maxmind';
 import path from 'path';
 import fs from 'fs';
 
@@ -9,7 +9,7 @@ const MMDB_PATHS = [
     path.join(process.cwd(), 'public', 'GeoLite2-Country.mmdb'),
 ];
 
-let lookup: maxmind.Reader<CountryResponse> | null = null;
+let lookup: Reader<CountryResponse> | null = null;
 
 export async function getRegionFromIP(ip: string): Promise<string> {
     // Default to INDIA if detection fails or IP is local
@@ -31,7 +31,7 @@ export async function getRegionFromIP(ip: string): Promise<string> {
             }
 
             const buffer = fs.readFileSync(dbPath);
-            lookup = new maxmind.Reader<CountryResponse>(buffer);
+            lookup = new Reader<CountryResponse>(buffer);
         }
 
         const response = lookup.get(ip);

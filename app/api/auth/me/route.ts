@@ -50,6 +50,8 @@ export async function GET(request: NextRequest) {
         email: user.email,
         credits: user.credits,
         isVerified: user.isVerified,
+        subscriptionStatus: user.subscriptionStatus,
+        isPaidUser: user.isPaidUser,
         provider: user.provider
       }
     });
@@ -57,9 +59,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error('Error getting user info:', error);
     return NextResponse.json(
-      { 
-        error: 'Failed to get user info', 
-        details: error.message 
+      {
+        error: 'Failed to get user info',
+        details: error.message
       },
       { status: 500 }
     );

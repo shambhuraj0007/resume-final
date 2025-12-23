@@ -15,7 +15,7 @@ interface CreditBalanceProps {
 
 function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
   const router = useRouter();
-  const { balance, loading, isPro } = useCredits();
+  const { balance, loading, isPro, isSubscriber } = useCredits();
 
   if (loading) {
     return (
@@ -44,16 +44,16 @@ function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {isPro ? <Award className="h-5 w-5 text-purple-600" /> : <Coins className="h-5 w-5" />}
-          {isPro ? "Current Plan" : "Credit Balance"}
+          {isSubscriber ? <Award className="h-5 w-5 text-purple-600" /> : <Coins className="h-5 w-5" />}
+          {isSubscriber ? "Current Plan" : "Credit Balance"}
         </CardTitle>
         <CardDescription>
-          {isPro ? "Manage your subscription" : "Use credits to analyze resumes"}
+          {isSubscriber ? "Manage your subscription" : "Use credits to analyze resumes"}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {/* Subscriber View */}
-        {isPro && (
+        {isSubscriber && (
           <div className="space-y-3">
             <div className="flex items-center justify-between p-3 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg">
               <div>
@@ -75,12 +75,15 @@ function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
         )}
 
         {/* Non-Pro View (Pack or Free) */}
-        {!isPro && (
+        {!isSubscriber && (
           <div className="space-y-4">
             {/* Plan Status Header */}
             <div className="flex justify-between items-center p-2 bg-slate-50 dark:bg-slate-900 border rounded-lg">
               <div className="flex items-center gap-2">
-                <span className="font-semibold text-sm">Plan: Free</span>
+                <span className="font-semibold text-sm">Plan: {isPro ? 'Pro (One-Time)' : 'Free Tier'}</span>
+                {isPro && (
+                  <span className="text-[10px] bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 font-bold px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">PRO</span>
+                )}
                 <span className="text-xs bg-slate-200 dark:bg-slate-800 px-2 py-0.5 rounded text-slate-600">Active</span>
               </div>
               {credits === 0 && (
@@ -100,7 +103,7 @@ function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
                   </div>
                   {onUpgradeClick && (
                     <Button onClick={onUpgradeClick} variant="default">
-                      Upgrade
+                      {isPro ? "Get More" : "Upgrade"}
                     </Button>
                   )}
                 </div>
@@ -115,11 +118,11 @@ function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
               /* Zero Credits / Free User Section */
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground px-1">
-                  3 scans remaining this month (rolling)
+                  {isPro ? "You've used all your credits. Get more to continue." : "3 scans remaining this month (rolling)"}
                 </p>
                 {onUpgradeClick && (
-                  <Button onClick={onUpgradeClick} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white">
-                    Upgrade to Pro
+                  <Button onClick={onUpgradeClick} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md">
+                    {isPro ? "Get More Credits" : "Upgrade to Pro"}
                   </Button>
                 )}
               </div>

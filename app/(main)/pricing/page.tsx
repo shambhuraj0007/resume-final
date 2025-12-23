@@ -9,6 +9,8 @@ import { useSession } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation"
 import Script from "next/script";
+import { useAuth } from "@/hooks/useAuth";
+import { useCredits } from "@/hooks/useCredits";
 import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
 
 type Region = "INDIA" | "USA" | "EUROPE" | "UK";
@@ -38,24 +40,41 @@ export default function PricingPage() {
   const [pendingOrder, setPendingOrder] = useState<any>(null);
   const [isVerifyingPending, setIsVerifyingPending] = useState(false);
 
+  const { isAuthenticated } = useAuth();
+  const { refreshBalance } = useCredits();
+
+  const checkPending = useCallback(async () => {
+    try {
+      const res = await fetch('/api/payment/latest-pending');
+      const data = await res.json();
+
+      // If we have a pending order ID in URL, prioritize that
+      const urlOrderId = searchParams.get('order_id');
+      if (urlOrderId) {
+        setPendingOrder({ orderId: urlOrderId });
+        return;
+      }
+
+      // Otherwise check for subscription params in URL
+      const cfSubId = searchParams.get('cf_subscriptionId') || searchParams.get('subscription_id');
+      if (cfSubId) {
+        setPendingOrder({ cfSubscriptionId: cfSubId, isSubscription: true });
+        return;
+      }
+
+      if (data.pending && data.transaction) {
+        setPendingOrder(data.transaction);
+      }
+    } catch (e) {
+      console.error("Error checking pending:", e);
+    }
+  }, [searchParams]);
+
   // Check for pending transaction on mount
   useEffect(() => {
-    if (!session) return;
-
-    const checkPending = async () => {
-      try {
-        const res = await fetch('/api/payment/latest-pending');
-        const data = await res.json();
-        if (data.pending && data.transaction) {
-          setPendingOrder(data.transaction);
-        }
-      } catch (e) {
-        console.error("Error checking pending:", e);
-      }
-    };
-
+    if (!session && !isAuthenticated) return;
     checkPending();
-  }, [session]);
+  }, [session, isAuthenticated, checkPending]);
 
   // Auto-verify if pending order exists
   useEffect(() => {
@@ -63,32 +82,42 @@ export default function PricingPage() {
 
     const verifyPending = async () => {
       setIsVerifyingPending(true);
-      const verifyUrl = '/api/payment/verify-cashfree';
       const orderId = pendingOrder.orderId;
-      let retries = 20; // 40 seconds max
+      const cfSubscriptionId = pendingOrder.cfSubscriptionId;
+      const isSubscription = pendingOrder.isSubscription || !!cfSubscriptionId;
+
+      let retries = isSubscription ? 1 : 20; // Subscriptions usually don't need polling if we have params
 
       while (retries > 0) {
         try {
+          const verifyUrl = isSubscription
+            ? `/api/payment/verify-signature?${searchParams.toString()}`
+            : '/api/payment/verify-cashfree';
+
           const res = await fetch(verifyUrl, {
-            method: 'POST',
+            method: isSubscription ? 'GET' : 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId })
+            ...(isSubscription ? {} : { body: JSON.stringify({ orderId }) })
           });
           const data = await res.json();
 
-          if (res.ok && (data.success || data.message === "Already completed")) {
+          if (res.ok && (data.success || data.message === "Already completed" || data.subscriptionStatus === 'active')) {
             toast({
               title: "Payment Successful",
-              description: "Credits added! Refreshing...",
+              description: "Credits added!",
               className: "bg-green-600 text-white border-green-700"
             });
-            setPendingOrder(null); // Clear pending state
-            router.refresh(); // Refresh to update credits? Or we need context refresh possibly.
-            // window.location.reload(); // Might be safer to ensure all state is fresh
+            setPendingOrder(null);
+            refreshBalance(); // Update context
+
+            // Auto redirect to dashboard after 2 seconds
+            setTimeout(() => {
+              router.push('/');
+            }, 2000);
             break;
           }
 
-          if (data.status === 'FAILED') {
+          if (data.status === 'FAILED' || data.cfCheckoutStatus === 'FAILED') {
             setPendingOrder(null);
             toast({ title: "Payment Failed", description: "The transaction failed.", variant: "destructive" });
             break;
@@ -177,7 +206,11 @@ export default function PricingPage() {
     };
 
     cashfree.checkout(checkoutOptions).then(() => {
-      console.log("Checkout opened successfully");
+      console.log("Checkout opened/closed");
+      // Give it a moment then check for pending orders
+      setTimeout(() => {
+        checkPending();
+      }, 2000);
     }).catch((error: any) => {
       console.error("Checkout error:", error);
       toast({ title: "Checkout Error", description: "Failed to open payment page.", variant: "destructive" });
@@ -185,7 +218,7 @@ export default function PricingPage() {
   };
 
   const handlePackPurchase = async () => {
-    if (!session) return router.push("/signin?callbackUrl=/pricing");
+    if (!session && !isAuthenticated) return router.push("/signin?callbackUrl=/pricing");
     if (!selectedPackId) return;
 
     setProcessingPackage(selectedPackId);
@@ -208,7 +241,7 @@ export default function PricingPage() {
   };
 
   const handleSubscriptionCashfree = async (planKey: string) => {
-    if (!session) return router.push("/signin?callbackUrl=/pricing");
+    if (!session && !isAuthenticated) return router.push("/signin?callbackUrl=/pricing");
 
     try {
       const res = await fetch("/api/payment/create-subscription", {
@@ -747,8 +780,10 @@ export default function PricingPage() {
                 <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-blue-600"></div>
               </div>
               <div>
-                <h4 className="font-bold text-slate-900 dark:text-white text-sm">Checking Payment...</h4>
-                <p className="text-xs text-slate-500">Order: {pendingOrder.orderId}</p>
+                <h4 className="font-bold text-slate-900 dark:text-white text-sm">Checking Payment Status...</h4>
+                <p className="text-xs text-slate-500">
+                  {pendingOrder.cfSubscriptionId ? `Subscription: ${pendingOrder.cfSubscriptionId}` : `Order: ${pendingOrder.orderId}`}
+                </p>
               </div>
               <Button
                 size="sm"

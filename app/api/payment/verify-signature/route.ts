@@ -71,10 +71,22 @@ export async function GET(req: NextRequest) {
 
         if (cfSubscriptionId) {
             await dbConnect();
+            // 1. Check for NextAuth session
             const session = await getServerSession(authOptions);
+            let userEmail = session?.user?.email;
 
-            if (session?.user?.email) {
-                const user = await User.findOne({ email: session.user.email });
+            // 2. Fallback to Phone/JWT auth if no session
+            if (!userEmail) {
+                const { verifyAuth } = await import("@/lib/auth");
+                const phoneUser = await verifyAuth(req);
+                if (phoneUser) {
+                    const userDoc = await User.findById(phoneUser.userId);
+                    userEmail = userDoc?.email;
+                }
+            }
+
+            if (userEmail) {
+                const user = await User.findOne({ email: userEmail });
 
                 if (user) {
                     try {

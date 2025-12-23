@@ -9,6 +9,7 @@ interface CreditBalance {
   subscriptionStatus?: string;
   isPaidUser?: boolean;
   isPro?: boolean;
+  isSubscriber?: boolean;
   lastCreditReset?: string | Date;
   nextCreditReset?: string | Date;
 }
@@ -155,6 +156,7 @@ export function useCredits() {
     refreshBalance,
     hasCredits: balance ? balance.credits > 0 && !balance.hasExpired : false,
     isPro: balance?.isPro || false,
+    isSubscriber: balance?.isSubscriber || false,
     subscriptionStatus: balance?.subscriptionStatus || null,
   };
 }

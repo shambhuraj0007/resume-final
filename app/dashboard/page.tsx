@@ -22,7 +22,7 @@ export default function DashboardPage() {
   const [totalAnalyses, setTotalAnalyses] = useState<number | null>(null);
   const [memberSince, setMemberSince] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
-  const { balance, refreshBalance } = useCredits();
+  const { balance, refreshBalance, isPro, isSubscriber } = useCredits();
 
   if (status === 'loading') {
     return (
@@ -129,23 +129,29 @@ export default function DashboardPage() {
               <CardDescription className="text-xs sm:text-sm">Your subscription and credit status</CardDescription>
             </CardHeader>
             <CardContent className="pb-4 sm:pb-6">
-              {session?.user?.subscriptionStatus === 'active' ? (
+              {isSubscriber ? (
                 <div className="space-y-2">
-                  <p className="text-sm">Plan: Pro Monthly</p>
-                  <p className="text-sm">Renews: Jan 10, 2026</p>
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">Plan: Pro Monthly</p>
+                  <p className="text-sm">Renews: {balance?.expiryDate ? format(new Date(balance.expiryDate), 'MMM dd, yyyy') : 'N/A'}</p>
                   <Button variant="outline" size="sm" onClick={() => router.push('/profile')} className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 h-7 text-xs">
-                    Cancel
+                    View Details
                   </Button>
                 </div>
-              ) : balance?.credits && balance?.credits > 0 ? (
+              ) : isPro ? (
                 <div className="space-y-2">
-                  <p className="text-sm">Credits: {balance?.credits} left</p>
-                  <p className="text-sm">Expires: {balance?.expiryDate ? format(new Date(balance?.expiryDate), 'MMM dd, yyyy') : 'N/A'}</p>
+                  <p className="text-sm font-semibold text-blue-600 dark:text-blue-400">Plan: Pro (One-Time)</p>
+                  <p className="text-sm font-bold text-2xl">{balance?.credits || 0} <span className="text-sm font-normal text-muted-foreground">Credits left</span></p>
+                  <Button variant="outline" size="sm" onClick={() => router.push('/pricing')} className="h-7 text-xs">
+                    Get More
+                  </Button>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <p className="text-sm">Plan: Free</p>
-                  <p className="text-sm">Total scans remaining this month: {totalAnalyses ?? 0}</p>
+                  <p className="text-sm">Plan: Free Tier</p>
+                  <p className="text-sm text-muted-foreground">Limited access to features</p>
+                  <Button variant="default" size="sm" onClick={() => router.push('/pricing')} className="bg-gradient-to-r from-blue-600 to-purple-600 h-7 text-xs">
+                    Upgrade to Pro
+                  </Button>
                 </div>
               )}
             </CardContent>

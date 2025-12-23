@@ -64,31 +64,35 @@ const SUBSCRIPTION_PLANS: any = {
 export async function POST(req: NextRequest) {
     try {
         await dbConnect();
+        // 1. Check for NextAuth session
         const session = await getServerSession(authOptions);
-        if (!session || !session.user) {
+        let userEmail = session?.user?.email;
+
+        // 2. Fallback to Phone/JWT auth if no session
+        if (!userEmail) {
+            const { verifyAuth } = await import("@/lib/auth");
+            const phoneUser = await verifyAuth(req);
+            if (phoneUser) {
+                const userDoc = await User.findById(phoneUser.userId);
+                userEmail = userDoc?.email;
+            }
+        }
+
+        if (!userEmail) {
             return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
         }
 
-        const body = await req.json();
-        const { planKey } = body; // e.g., 'pro-monthly-inr'
+        const user = await User.findOne({ email: userEmail });
+        if (!user) {
+            return NextResponse.json({ error: "User not found" }, { status: 404 });
+        }
 
-        // ✅ DEBUG: Log to verify env vars are loaded
-        console.log("ENV CHECK:", {
-            monthly: process.env.CASHFREE_PLAN_MONTHLY_ID,
-            quarterly: process.env.CASHFREE_PLAN_QUARTERLY_ID
-        });
+        const body = await req.json();
+        const { planKey } = body;
 
         const plan = SUBSCRIPTION_PLANS[planKey];
         if (!plan) {
             return NextResponse.json({ error: "Invalid plan selected" }, { status: 400 });
-        }
-
-        // ✅ DEBUG: Log the plan being used
-        console.log("Using plan:", { planKey, planId: plan.planId });
-
-        const user = await User.findOne({ email: session.user.email });
-        if (!user) {
-            return NextResponse.json({ error: "User not found" }, { status: 404 });
         }
 
         const subscriptionId = `SUB_${Date.now()}`; // Internal ID reference if needed, usually Gateway generates one
@@ -98,7 +102,7 @@ export async function POST(req: NextRequest) {
             if (!plan.planId) return NextResponse.json({ error: "Configuration Error: Missing Cashfree Plan ID" }, { status: 500 });
 
             const customerPhone = user.phone || "9999999999";
-            const returnUrl = `${process.env.NEXTAUTH_URL}/payment/status`;
+            const returnUrl = `${process.env.NEXTAUTH_URL}/api/payment/success-redirect`;
 
             const cfSub = await createCashfreeSubscription(
                 plan.planId,

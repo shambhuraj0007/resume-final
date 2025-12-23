@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 
 export interface UserStatus {
     isPro: boolean;
+    isSubscriber: boolean;
     loading: boolean;
     hasActiveSubscription: boolean;
     hasCredits: boolean;
@@ -22,6 +23,7 @@ export function useUserStatus(): UserStatus {
     const { data: session, status } = useSession();
     const [userStatus, setUserStatus] = useState<UserStatus>({
         isPro: false,
+        isSubscriber: false,
         loading: true,
         hasActiveSubscription: false,
         hasCredits: false,
@@ -36,18 +38,8 @@ export function useUserStatus(): UserStatus {
                 return;
             }
 
-            if (!session?.user?.email) {
-                // Not authenticated - treat as free user
-                setUserStatus({
-                    isPro: false,
-                    loading: false,
-                    hasActiveSubscription: false,
-                    hasCredits: false,
-                    credits: 0,
-                    isPaidUser: false,
-                });
-                return;
-            }
+            // Removed early return for missing session to support phone users
+            // Phone users have a JWT in cookies which the API handles
 
             try {
                 const response = await fetch("/api/user/status");
@@ -59,6 +51,7 @@ export function useUserStatus(): UserStatus {
 
                 setUserStatus({
                     isPro: data.isPro, // Use consolidated isPro from backend
+                    isSubscriber: data.isSubscriber || false,
                     loading: false,
                     hasActiveSubscription: data.subscriptionStatus === "active",
                     hasCredits: (data.credits || 0) > 0,
@@ -72,6 +65,7 @@ export function useUserStatus(): UserStatus {
                 // On error, default to free user
                 setUserStatus({
                     isPro: false,
+                    isSubscriber: false,
                     loading: false,
                     hasActiveSubscription: false,
                     hasCredits: false,

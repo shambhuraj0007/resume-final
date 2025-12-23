@@ -51,7 +51,7 @@ export default function Page() {
   const [showDeactivateModal, setShowDeactivateModal] = useState(false);
 
   // Use the hook to get isPro status consistently
-  const { balance, refreshBalance, isPro } = useCredits();
+  const { balance, refreshBalance, isPro, isSubscriber } = useCredits();
   const { toast } = useToast();
 
   const handleDeactivateSubscription = async () => {
@@ -185,8 +185,8 @@ export default function Page() {
                   </AvatarFallback>
                 </Avatar>
 
-                {/* Overlapping Pro Badge using isPro */}
-                {isPro && (
+                {/* Overlapping Pro Badge using isSubscriber */}
+                {isSubscriber && (
                   <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#22b3c0] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-full border-[3px] border-background shadow-sm uppercase tracking-widest z-50">
                     PRO
                   </div>
@@ -210,7 +210,7 @@ export default function Page() {
                     {formatEmailDisplay(session.user?.email)}
                   </span>
                 </div>
-                {isPro && (
+                {isSubscriber && (
                   <div className="pt-2">
                     <Button
                       variant="outline"
@@ -369,6 +369,11 @@ export default function Page() {
                               variant="outline"
                               size="sm"
                               onClick={async () => {
+                                if (!isPro) {
+                                  setShowUpgradeModal(true);
+                                  return;
+                                }
+
                                 try {
                                   toast({
                                     title: "Generating PDF...",

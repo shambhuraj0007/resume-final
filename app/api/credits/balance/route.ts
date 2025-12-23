@@ -1,14 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/authOptions';
+import { verifyAuth } from '@/lib/auth'; // Add verifyAuth
 import connectDB from '@/lib/mongodb';
 import { getUserCredits } from '@/payment/creditService';
 
 export async function GET(req: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
+    let userEmail = session?.user?.email;
 
-    if (!session || !session.user?.email) {
+    // Fallback to Phone/JWT if no NextAuth session
+    if (!userEmail) {
+      const phoneUser = await verifyAuth(req);
+      if (phoneUser) {
+        await connectDB();
+        const User = (await import('@/models/User')).default;
+        const userDoc = await User.findById(phoneUser.userId);
+        userEmail = userDoc?.email;
+      }
+    }
+
+    if (!userEmail) {
       return NextResponse.json(
         {
           credits: 0,
@@ -22,9 +35,9 @@ export async function GET(req: NextRequest) {
 
     await connectDB();
 
-    // Get user from session
+    // Get user from resolved email
     const User = (await import('@/models/User')).default;
-    const user = await User.findOne({ email: session.user.email });
+    const user = await User.findOne({ email: userEmail });
 
     if (!user) {
       return NextResponse.json(
@@ -47,6 +60,7 @@ export async function GET(req: NextRequest) {
       subscriptionStatus: user.subscriptionStatus,
       isPaidUser: user.isPaidUser || false,
       isPro: user.subscriptionStatus === 'active' || user.isPaidUser === true,
+      isSubscriber: user.subscriptionStatus === 'active',
       lastCreditReset: lastResetDate,
       nextCreditReset: nextResetDate,
     });
