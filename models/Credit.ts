@@ -4,6 +4,7 @@ export interface ICredit extends Document {
   userId: mongoose.Types.ObjectId;
   credits: number;
   expiryDate: Date | null;
+  lastResetDate: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,8 +19,12 @@ const CreditSchema: Schema<ICredit> = new Schema(
     credits: {
       type: Number,
       required: true,
-      default: 1, // 1 free credit for new users
+      default: 3, // 3 free credits for new users
       min: 0,
+    },
+    lastResetDate: {
+      type: Date,
+      default: Date.now,
     },
     expiryDate: {
       type: Date,

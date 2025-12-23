@@ -48,33 +48,52 @@ export default function Page() {
   const [resumes, setResumes] = useState<Resume[]>([]);
   const [loading, setLoading] = useState(true);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showDeactivateModal, setShowDeactivateModal] = useState(false);
+
+  // Use the hook to get isPro status consistently
+  const { balance, refreshBalance, isPro } = useCredits();
   const { toast } = useToast();
-  const { balance, refreshBalance } = useCredits();
 
-  // Inline email formatter - hides @gmail.com for phone pattern emails
-  const formatEmailDisplay = (email: string | null | undefined): string => {
-    if (!email) return '';
+  const handleDeactivateSubscription = async () => {
+    try {
+      const response = await fetch('/api/payment/cancel-subscription', {
+        method: 'POST',
+      });
 
-    const [localPart, domain] = email.split('@');
+      const data = await response.json();
 
-    // Detect if local part looks like a phone number (with optional from+/+91/91)
-    const phoneLike = /^(from\+)?(\+91)?(91)?\d{8,12}$/i;
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel subscription');
+      }
 
-    return phoneLike.test(localPart) ? localPart : email;
+      toast({
+        title: "Subscription Cancelled",
+        description: "Your subscription has been deactivated successfully.",
+      });
+
+      setShowDeactivateModal(false);
+      window.location.reload();
+
+    } catch (error: any) {
+      toast({
+        title: "Cancellation Failed",
+        description: error.message || "Could not cancel subscription. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
 
+  const formatEmailDisplay = (email: string | null | undefined): string => {
+    if (!email) return '';
+    const [localPart, domain] = email.split('@');
+    const phoneLike = /^(from\+)?(\+91)?(91)?\d{8,12}$/i;
+    return phoneLike.test(localPart) ? localPart : email;
+  };
 
-  // Guard localStorage for SSR
   const settings = {
-    displayName:
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem("resumeitnow_name") || session?.user?.name
-        : session?.user?.name,
-    defaultTemplate:
-      typeof window !== 'undefined'
-        ? window.localStorage.getItem("resumeitnow_template") || 'modern'
-        : 'modern'
+    displayName: session?.user?.name,
+    defaultTemplate: 'modern'
   };
 
   const deleteResume = async (resumeId: string) => {
@@ -145,7 +164,6 @@ export default function Page() {
 
   return (
     <div className="container min-h-screen mx-auto px-4 py-8 max-w-7xl">
-      {/* Header - matching dashboard style */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold mb-2">My Profile</h1>
         <p className="text-muted-foreground">
@@ -153,22 +171,34 @@ export default function Page() {
         </p>
       </div>
 
-      {/* Grid: Single column mobile, sidebar + content on large screens */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[300px_1fr]">
-        {/* Sidebar: Profile + Credits */}
         <div className="space-y-6">
-          {/* Profile Card */}
-          <Card className="h-fit">
-            <CardHeader className="text-center pb-4">
-              <Avatar className="w-24 h-24 mx-auto mb-4">
-                <AvatarImage src={session.user?.image ?? ''} alt={session.user?.name ?? ''} />
-                <AvatarFallback className="text-2xl">
-                  {session.user?.name?.charAt(0) ?? 'U'}
-                </AvatarFallback>
-              </Avatar>
-              <CardTitle className="text-xl">
-                {(settings.displayName !== '' ? settings.displayName : session.user?.name)}
-              </CardTitle>
+
+          {/* Profile Card - Updated with overflow-visible and isPro check */}
+          <Card className="h-fit overflow-visible">
+            <CardHeader className="text-center pb-4 overflow-visible">
+              <div className="relative w-24 h-24 mx-auto mb-4">
+                <Avatar className="w-full h-full border-4 border-white shadow-lg">
+                  <AvatarImage src={session.user?.image ?? ''} alt={session.user?.name ?? ''} />
+                  <AvatarFallback className="text-2xl bg-gradient-to-br from-indigo-500 to-purple-500 text-white">
+                    {session.user?.name?.charAt(0) ?? 'U'}
+                  </AvatarFallback>
+                </Avatar>
+
+                {/* Overlapping Pro Badge using isPro */}
+                {isPro && (
+                  <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-[#22b3c0] text-white text-[10px] font-extrabold px-3 py-0.5 rounded-full border-[3px] border-background shadow-sm uppercase tracking-widest z-50">
+                    PRO
+                  </div>
+                )}
+              </div>
+
+              <div className="flex items-center justify-center gap-2 mt-4">
+                <CardTitle className="text-xl">
+                  {(settings.displayName !== '' ? settings.displayName : session.user?.name)}
+                </CardTitle>
+              </div>
+
               <CardDescription className="space-y-2">
                 <div className="flex items-center justify-center gap-2">
                   <User className="w-4 h-4 flex-shrink-0" />
@@ -180,9 +210,42 @@ export default function Page() {
                     {formatEmailDisplay(session.user?.email)}
                   </span>
                 </div>
+                {isPro && (
+                  <div className="pt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowDeactivateModal(true)}
+                      className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 h-7 text-xs"
+                    >
+                      Deactivate Subscription
+                    </Button>
+                  </div>
+                )}
               </CardDescription>
             </CardHeader>
           </Card>
+
+          {/* Deactivate Dialog */}
+          <AlertDialog open={showDeactivateModal} onOpenChange={setShowDeactivateModal}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Cancel Subscription?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to cancel your Pro subscription? You will lose access to premium features at the end of your current billing period.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Keep Subscription</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDeactivateSubscription}
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                >
+                  Yes, Cancel
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Credit Balance Card */}
           <Card className="border-primary/20">
@@ -208,6 +271,13 @@ export default function Page() {
                   </div>
                 )}
 
+                {balance?.nextCreditReset && (
+                  <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                    <Calendar className="h-4 w-4 flex-shrink-0" />
+                    <span>Free credits renew on {format(new Date(balance.nextCreditReset), 'MMM dd, yyyy')}</span>
+                  </div>
+                )}
+
                 {balance?.hasExpired && (
                   <p className="text-sm text-red-500 mt-3">
                     Your credits have expired
@@ -216,7 +286,7 @@ export default function Page() {
               </div>
 
               <Button
-                onClick={() => setShowUpgradeModal(true)}
+                onClick={() => router.push('/pricing')}
                 className="w-full"
                 variant="default"
               >
@@ -269,9 +339,7 @@ export default function Page() {
                       className="hover:bg-accent/50 transition-colors border-muted"
                     >
                       <CardContent className="pt-6">
-                        {/* Stack on mobile, row on md+ */}
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          {/* Resume info */}
                           <div className="flex items-start gap-3 min-w-0 flex-1">
                             <FileText className="w-8 h-8 text-primary flex-shrink-0 mt-1" />
                             <div className="min-w-0 flex-1">
@@ -287,7 +355,6 @@ export default function Page() {
                             </div>
                           </div>
 
-                          {/* Action buttons - stack on xs, row on sm+ */}
                           <div className="flex flex-col gap-2 sm:flex-row sm:flex-shrink-0">
                             <Button
                               variant="outline"
@@ -303,31 +370,20 @@ export default function Page() {
                               size="sm"
                               onClick={async () => {
                                 try {
-
-
                                   toast({
                                     title: "Generating PDF...",
                                     description: "Your resume is being prepared for download",
                                   });
 
-                                  // First try the direct PDF route
                                   let response = await fetch(`/resume/${resume.id}/pdf`);
 
-
-                                  // If direct route fails, try fetching resume data and using API route
                                   if (!response.ok) {
-
-
-                                    // Fetch resume data
                                     const resumeResponse = await fetch(`/api/resumes/${resume.id}`);
                                     if (!resumeResponse.ok) {
                                       throw new Error('Failed to fetch resume data');
                                     }
 
                                     const resumeData = await resumeResponse.json();
-
-
-                                    // Use the API PDF route with query parameters
                                     const queryParams = new URLSearchParams({
                                       data: JSON.stringify(resumeData),
                                       template: resumeData.template || 'modern',
@@ -343,18 +399,10 @@ export default function Page() {
                                     });
                                   }
 
-
-
-
                                   if (!response.ok) {
                                     const errorText = await response.text();
-                                    console.error('PDF generation failed:', errorText);
-                                    console.error('Response headers:', Object.fromEntries(response.headers.entries()));
-
-                                    // Try to parse JSON error if it's JSON
                                     try {
                                       const errorJson = JSON.parse(errorText);
-                                      console.error('Parsed error JSON:', errorJson);
                                       throw new Error(`PDF generation failed: ${errorJson.message || errorJson.error || errorText}`);
                                     } catch (parseError) {
                                       throw new Error(`Failed to generate PDF: ${response.status} - ${errorText}`);
@@ -362,29 +410,22 @@ export default function Page() {
                                   }
 
                                   const blob = await response.blob();
-
-
                                   if (blob.size === 0) {
                                     throw new Error('Generated PDF is empty');
                                   }
 
-                                  // Create download link
                                   const url = window.URL.createObjectURL(blob);
                                   const a = document.createElement('a');
                                   a.href = url;
                                   a.download = `Resume-${resume.id}.pdf`;
                                   a.style.display = 'none';
-
                                   document.body.appendChild(a);
                                   a.click();
 
-                                  // Cleanup
                                   setTimeout(() => {
                                     window.URL.revokeObjectURL(url);
                                     document.body.removeChild(a);
                                   }, 100);
-
-
 
                                   toast({
                                     title: "Download Complete!",
@@ -446,7 +487,6 @@ export default function Page() {
         </Card>
       </div>
 
-      {/* Upgrade Modal */}
       <UpgradeModal
         open={showUpgradeModal}
         onOpenChange={setShowUpgradeModal}

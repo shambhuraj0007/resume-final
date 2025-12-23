@@ -15,6 +15,7 @@ export interface IUser extends Document {
   isVerified?: boolean; // Phone/email verification status
   provider: 'credentials' | 'google' | 'phone'; // Track auth provider
   credits: number; // User credits for premium features
+  isPaidUser: boolean; // Flag for users who have purchased credits or subscription
   region?: string;
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'past_due' | 'unpaid' | 'cancelled' | 'expired' | null;
@@ -81,8 +82,12 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     credits: {
       type: Number,
-      default: 5, // Give 5 free credits to new users
+      default: 3, // Give 3 free credits to new users
       min: 0,
+    },
+    isPaidUser: {
+      type: Boolean,
+      default: false,
     },
     settings: {
       displayName: {

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { CreditCard, IndianRupee, CalendarClock, Loader2, CheckCircle, XCircle, RotateCcw } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
+import { useToast } from '@/hooks/use-toast';
 
 interface PaymentItem {
   _id: string;
@@ -23,7 +24,7 @@ interface PaymentItem {
   createdAt: string;
 }
 
-export default function PaymentHistory() {
+export default function PaymentHistory(): JSX.Element {
   const [items, setItems] = useState<PaymentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -57,6 +58,49 @@ export default function PaymentHistory() {
     setRefreshing(true);
     await fetchPage(page);
     setRefreshing(false);
+  };
+
+  const { toast } = useToast();
+  const verifiedIds = useRef(new Set<string>());
+
+  useEffect(() => {
+    if (items.length > 0) {
+      items.forEach(item => {
+        if (item.status === 'pending' && !verifiedIds.current.has(item.orderId)) {
+          // Only auto-verify recent orders (e.g. created in last 24 hours)? 
+          // For now, verify all pending on page to be safe.
+          verifiedIds.current.add(item.orderId);
+          verifyOrder(item.orderId, true);
+        }
+      });
+    }
+  }, [items]);
+
+  const verifyOrder = async (orderId: string, isAuto = false) => {
+    try {
+      if (!isAuto) toast({ title: "Checking status..." });
+      const res = await fetch('/api/payment/verify-cashfree', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId }),
+      });
+      const data = await res.json();
+
+      if (data.success || data.message === "Already completed") {
+        toast({
+          title: "Payment Confirmed",
+          description: "Credits have been added to your account.",
+          className: "bg-green-600 text-white border-green-700"
+        });
+        fetchPage(page); // refresh list
+      } else {
+        if (!isAuto) {
+          toast({ title: "Status", description: data.error || "Payment still pending or failed." });
+        }
+      }
+    } catch (error) {
+      if (!isAuto) toast({ title: "Error", description: "Failed to check status", variant: "destructive" });
+    }
   };
 
   const statusBadge = (status: PaymentItem['status']) => {
@@ -140,7 +184,21 @@ export default function PaymentHistory() {
                       <p className="font-medium text-sm">
                         {t.packageType.charAt(0).toUpperCase() + t.packageType.slice(1)} Pack
                       </p>
-                      {statusBadge(t.status)}
+                      {t.status === 'pending' && (
+                        <div className="flex items-center gap-2">
+                          {statusBadge(t.status)}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-6 w-6"
+                            title="Check Status"
+                            onClick={() => verifyOrder(t.orderId)}
+                          >
+                            <RotateCcw className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
+                      {t.status !== 'pending' && statusBadge(t.status)}
                       <Badge variant="outline" className="text-xs">
                         {t.credits} {t.credits === 1 ? 'credit' : 'credits'}
                       </Badge>
@@ -189,3 +247,4 @@ export default function PaymentHistory() {
     </Card>
   );
 }
+

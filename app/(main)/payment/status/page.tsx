@@ -1,278 +1,240 @@
 'use client';
 
+import { useToast } from '@/hooks/use-toast';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense, useEffect, useState } from 'react';
+
+// Import toast logic handled by hook
 
 function StatusContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
+
+  const [isVerifying, setIsVerifying] = useState(true); // Start true to trigger effect logic
   const [error, setError] = useState<string | null>(null);
   const [subscriptionData, setSubscriptionData] = useState<any>(null);
-  const [debugLogs, setDebugLogs] = useState<string[]>([]);
 
-  // Helper to add debug logs
-  const addLog = (message: string) => {
-    console.log(`[STATUS PAGE] ${message}`);
-    setDebugLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
+  // Derived state: pending if no data OR status is pending
+  const isPending = !subscriptionData ||
+    subscriptionData.cfStatus === 'BANK_APPROVAL_PENDING' ||
+    subscriptionData.cfStatus === 'PENDING';
+
+  const verifyAndFetch = async (isManual = false) => {
+    // If manual, we always run. If auto (initial), we run.
+    // We update isVerifying to show spinner if needed.
+    setIsVerifying(true);
+    setError(null);
+
+    try {
+      const orderId = searchParams.get('order_id');
+      const cfSubscriptionId = searchParams.get('cf_subscriptionId');
+      const cfStatus = searchParams.get('cf_status');
+      const cfCheckoutStatus = searchParams.get('cf_checkoutStatus');
+
+      // 1. One-time Order Flow (Credits)
+      if (orderId) {
+        const verifyUrl = '/api/payment/verify-cashfree';
+        // Auto: 10 retries (approx 20s). Manual: 1 retry.
+        let retries = isManual ? 1 : 10;
+        let successData = null;
+
+        while (retries > 0) {
+          try {
+            const res = await fetch(verifyUrl, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ orderId })
+            });
+            const data = await res.json();
+
+            if (res.ok && (data.success || data.message === "Already completed")) {
+              successData = data;
+              break;
+            }
+
+            const s = data.status || '';
+            if (s === 'FAILED' || s === 'USER_DROPPED') {
+              throw new Error(data.error || 'Payment failed');
+            }
+            // Pending... continue
+          } catch (inner) { console.warn(inner); }
+
+          retries--;
+          if (retries > 0 && !successData) await new Promise(r => setTimeout(r, 2000));
+        }
+
+        if (successData) {
+          setSubscriptionData({
+            cfStatus: "ACTIVE",
+            cfSubscriptionId: orderId,
+            isOrder: true,
+            ...successData
+          });
+          toast({
+            title: "Payment Successful",
+            description: "Your credits have been added successfully.",
+            className: "bg-green-600 text-white border-green-700"
+          });
+        } else {
+          if (isManual) toast({ title: "Still Processing", description: "Payment is still pending. Please wait or check again." });
+        }
+        return;
+      }
+
+      // 2. Subscription Flow
+      if (cfSubscriptionId || cfStatus || cfCheckoutStatus) {
+        if (cfCheckoutStatus === 'FAILED') throw new Error('Payment failed. Please try again.');
+
+        const queryString = searchParams.toString();
+        const verifyUrl = `/api/payment/verify-signature?${queryString}`;
+        const res = await fetch(verifyUrl);
+        if (!res.ok) throw new Error('Signature verification failed');
+
+        const data = await res.json();
+        setSubscriptionData({
+          cfSubscriptionId,
+          cfStatus,
+          ...data
+        });
+
+        if (data.subscriptionStatus === 'active') {
+          toast({
+            title: "Subscription Active",
+            description: "Your Pro plan is now active!",
+            className: "bg-green-600 text-white border-green-700"
+          });
+        }
+        return;
+      }
+
+      // If no valid params, shows error
+      throw new Error('Invalid access. Please complete payment through the pricing page.');
+
+    } catch (err: any) {
+      setError(err.message || 'Something went wrong');
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   useEffect(() => {
-    const verifyAndFetch = async () => {
-      try {
-        addLog('=== PAGE LOADED ===');
-        addLog(`Environment check: NEXTAUTH_URL = ${process.env.NEXT_PUBLIC_APP_URL || 'undefined'}`);
-        
-        // Log all search params
-        const allParams = Array.from(searchParams.entries());
-        addLog(`Total params received: ${allParams.length}`);
-        allParams.forEach(([key, value]) => {
-          addLog(`  - ${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
-        });
+    verifyAndFetch(false);
+  }, []);
 
-        // Get Cashfree parameters
-        const cfSubscriptionId = searchParams.get('cf_subscriptionId');
-        const cfStatus = searchParams.get('cf_status');
-        const cfCheckoutStatus = searchParams.get('cf_checkoutStatus');
-        const signature = searchParams.get('signature');
+  const handleRefresh = () => verifyAndFetch(true);
 
-        addLog(`cfSubscriptionId: ${cfSubscriptionId || 'NULL'}`);
-        addLog(`cfStatus: ${cfStatus || 'NULL'}`);
-        addLog(`cfCheckoutStatus: ${cfCheckoutStatus || 'NULL'}`);
-        addLog(`signature present: ${signature ? 'YES' : 'NO'}`);
-
-        // Check if this is direct access or missing params
-        if (!cfSubscriptionId && !cfStatus && !cfCheckoutStatus) {
-          addLog('ERROR: No Cashfree parameters detected - likely direct access');
-          setError('Invalid access. Please complete payment through the pricing page.');
-          setLoading(false);
-          return;
-        }
-
-        // Build query string for verification
-        const queryString = searchParams.toString();
-        addLog(`Query string length: ${queryString.length}`);
-        
-        if (!queryString) {
-          addLog('ERROR: Query string is empty');
-          setError('No payment data received');
-          setLoading(false);
-          return;
-        }
-
-        // Check if checkout failed immediately
-        if (cfCheckoutStatus === 'FAILED') {
-          addLog('Payment marked as FAILED by Cashfree');
-          setError('Payment failed. Please try again.');
-          setLoading(false);
-          return;
-        }
-
-        // Attempt signature verification
-        addLog('Attempting signature verification...');
-        const verifyUrl = `/api/payment/verify-signature?${queryString}`;
-        addLog(`Verify URL: ${verifyUrl.substring(0, 100)}...`);
-
-        let verifyResponse;
-        try {
-          verifyResponse = await fetch(verifyUrl);
-          addLog(`Verify response status: ${verifyResponse.status} ${verifyResponse.statusText}`);
-        } catch (fetchError) {
-          addLog(`FETCH ERROR: ${fetchError instanceof Error ? fetchError.message : 'Unknown error'}`);
-          throw new Error('Network error during verification');
-        }
-
-        if (!verifyResponse.ok) {
-          let errorData;
-          try {
-            errorData = await verifyResponse.json();
-            addLog(`Verify error data: ${JSON.stringify(errorData)}`);
-          } catch (parseError) {
-            addLog('Could not parse error response');
-            errorData = { error: 'Unknown verification error' };
-          }
-          throw new Error(errorData.error || 'Signature verification failed');
-        }
-
-        // Parse verification response
-        let verifyData;
-        try {
-          verifyData = await verifyResponse.json();
-          addLog(`Verify success: ${JSON.stringify(verifyData)}`);
-        } catch (parseError) {
-          addLog(`JSON parse error: ${parseError instanceof Error ? parseError.message : 'Unknown'}`);
-          throw new Error('Invalid verification response');
-        }
-
-        // Set subscription data
-        const finalData = {
-          cfSubscriptionId,
-          cfStatus,
-          cfCheckoutStatus,
-          ...verifyData
-        };
-        addLog(`Final subscription data: ${JSON.stringify(finalData)}`);
-        setSubscriptionData(finalData);
-
-        addLog('=== VERIFICATION COMPLETE ===');
-        setLoading(false);
-
-      } catch (err) {
-        addLog(`CAUGHT ERROR: ${err instanceof Error ? err.message : 'Unknown error'}`);
-        addLog(`Error stack: ${err instanceof Error ? err.stack : 'No stack'}`);
-        console.error('Status page error:', err);
-        setError(err instanceof Error ? err.message : 'Something went wrong');
-        setLoading(false);
-      }
-    };
-
-    verifyAndFetch();
-  }, [searchParams]);
-
-  // Debug panel (only show in development)
-  const DebugPanel = () => {
-    if (process.env.NODE_ENV !== 'development') return null;
-    
-    return (
-      <div className="fixed bottom-0 left-0 right-0 bg-black text-green-400 p-4 max-h-64 overflow-y-auto text-xs font-mono">
-        <div className="flex justify-between items-center mb-2">
-          <strong>🐛 DEBUG CONSOLE</strong>
-          <button 
-            onClick={() => setDebugLogs([])}
-            className="bg-red-600 text-white px-2 py-1 rounded text-xs"
-          >
-            Clear
-          </button>
-        </div>
-        {debugLogs.map((log, i) => (
-          <div key={i} className="border-l-2 border-green-600 pl-2 mb-1">
-            {log}
-          </div>
-        ))}
-      </div>
-    );
-  };
-
-  // Loading state
-  if (loading) {
-    return (
-      <>
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Verifying your payment...</p>
-            <p className="mt-2 text-sm text-gray-400">Check console for debug info</p>
-          </div>
-        </div>
-        <DebugPanel />
-      </>
-    );
-  }
-
-  // Error state
   if (error) {
     return (
-      <>
-        <div className="min-h-screen flex items-center justify-center p-4">
-          <div className="max-w-2xl w-full bg-white shadow-lg rounded-lg p-8">
-            <div className="text-center">
-              <div className="text-red-600 text-5xl mb-4">⚠️</div>
-              <h1 className="text-2xl font-bold text-gray-800 mb-4">Payment Error</h1>
-              <p className="text-gray-600 mb-6">{error}</p>
-              
-              {/* Show debug info in error state */}
-              <div className="bg-gray-100 rounded p-4 mb-6 text-left">
-                <p className="font-semibold mb-2">Debug Information:</p>
-                <div className="text-xs space-y-1">
-                  <p>• URL: {typeof window !== 'undefined' ? window.location.href : 'N/A'}</p>
-                  <p>• Params count: {Array.from(searchParams.entries()).length}</p>
-                  <p>• Logs: {debugLogs.length} entries (check browser console)</p>
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  addLog('User clicked: Back to Pricing');
-                  router.push('/pricing');
-                }}
-                className="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition"
-              >
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+        <div className="max-w-md w-full bg-white shadow-lg rounded-lg p-8">
+          <div className="text-center">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-3">Payment Issue</h1>
+            <p className="text-gray-600 mb-8">{error}</p>
+            <div className="flex flex-col gap-3">
+              <button onClick={handleRefresh} disabled={isVerifying} className="w-full bg-gray-100 text-gray-900 px-6 py-3 rounded-lg hover:bg-gray-200 transition-colors font-medium">
+                {isVerifying ? 'Checking...' : 'Check Again'}
+              </button>
+              <button onClick={() => router.push('/pricing')} className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium">
                 Back to Pricing
               </button>
             </div>
           </div>
         </div>
-        <DebugPanel />
-      </>
+      </div>
     );
   }
 
-  // Success state
+  // Pending / Success View
   return (
-    <>
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-        <div className="max-w-2xl w-full bg-white shadow-lg rounded-lg p-8">
-          <div className="text-center">
-            <div className="text-green-600 text-5xl mb-4">✓</div>
-            <h1 className="text-2xl font-bold text-gray-800 mb-4">
-              {subscriptionData?.cfCheckoutStatus === 'SUCCESS' 
-                ? 'Payment Successful!' 
-                : 'Subscription Activated!'}
-            </h1>
-            
-            <div className="text-left bg-gray-50 rounded-lg p-4 mb-6 space-y-2">
-              <div className="flex justify-between">
-                <span className="text-gray-600">Subscription ID:</span>
-                <span className="font-mono text-sm">{subscriptionData?.cfSubscriptionId}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Status:</span>
-                <span className="font-semibold text-green-600">{subscriptionData?.cfStatus}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-600">Checkout Status:</span>
-                <span className="font-semibold">{subscriptionData?.cfCheckoutStatus}</span>
-              </div>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 to-blue-50 p-4">
+      <div className="max-w-md w-full bg-white shadow-xl rounded-lg p-8">
+        <div className="text-center">
+          {isPending ? (
+            <div className="w-16 h-16 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              {isVerifying ? (
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-600"></div>
+              ) : (
+                <svg className="w-8 h-8 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              )}
             </div>
+          ) : (
+            <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+          )}
 
-            {/* Debug info in success state */}
-            {process.env.NODE_ENV === 'development' && (
-              <details className="text-left bg-blue-50 rounded p-4 mb-6">
-                <summary className="cursor-pointer font-semibold text-blue-900">
-                  🔍 Debug Data
-                </summary>
-                <pre className="mt-2 text-xs overflow-x-auto">
-                  {JSON.stringify(subscriptionData, null, 2)}
-                </pre>
-              </details>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
+            {isPending ? 'Payment Processing' : 'Payment Successful!'}
+          </h1>
+
+          <p className="text-gray-600 mb-6">
+            {isPending
+              ? 'We are checking your payment status. This usually takes just a few seconds.'
+              : subscriptionData?.isOrder
+                ? 'Your credits have been added successfully.'
+                : 'Your subscription is now active!'}
+          </p>
+
+          <div className="bg-gray-50 rounded-lg p-6 mb-8 space-y-3">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">
+                {subscriptionData?.isOrder ? 'Order ID' : 'Reference ID'}
+              </span>
+              <span className="text-sm font-mono font-medium text-gray-900 break-all">
+                {subscriptionData?.cfSubscriptionId || searchParams.get('order_id') || searchParams.get('cf_subscriptionId')}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Status</span>
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${isPending
+                ? 'bg-yellow-100 text-yellow-800'
+                : 'bg-green-100 text-green-800'
+                }`}>
+                {isPending ? 'Processing...' : 'Completed'}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3">
+            {isPending && (
+              <button
+                onClick={handleRefresh}
+                disabled={isVerifying}
+                className="w-full bg-yellow-500 text-white px-6 py-3 rounded-lg hover:bg-yellow-600 transition-colors font-medium shadow-sm disabled:opacity-70"
+              >
+                {isVerifying ? 'Checking...' : 'Check Status Again'}
+              </button>
             )}
-
             <button
-              onClick={() => {
-                addLog('User clicked: Go to Dashboard');
-                router.push('/');
-              }}
-              className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition"
+              onClick={() => router.push('/')}
+              className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors font-medium shadow-sm hover:shadow-md"
             >
-              Go to Dashboard
+              Analyze Now!
             </button>
           </div>
         </div>
       </div>
-      <DebugPanel />
-    </>
+    </div>
   );
 }
 
 export default function PaymentStatusPage() {
-  console.log('[STATUS PAGE] Main component rendering');
-  
   return (
     <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-purple-600 mx-auto"></div>
-          <p className="mt-4 text-gray-400">Loading payment status...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-600 mx-auto"></div>
+          <p className="mt-6 text-lg text-gray-600 font-medium">Loading payment status...</p>
         </div>
       </div>
     }>

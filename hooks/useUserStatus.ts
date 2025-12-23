@@ -7,13 +7,16 @@ export interface UserStatus {
     hasActiveSubscription: boolean;
     hasCredits: boolean;
     credits: number;
+    isPaidUser: boolean;
+    nextCreditReset?: string;
+    lastCreditReset?: string;
 }
 
 /**
  * Hook to check if user is a Pro user
  * A user is considered Pro if they have:
  * - An active subscription (subscriptionStatus === 'active'), OR
- * - Credits remaining (credits > 0)
+ * - They have purchased credits (isPaidUser === true)
  */
 export function useUserStatus(): UserStatus {
     const { data: session, status } = useSession();
@@ -23,6 +26,7 @@ export function useUserStatus(): UserStatus {
         hasActiveSubscription: false,
         hasCredits: false,
         credits: 0,
+        isPaidUser: false,
     });
 
     useEffect(() => {
@@ -40,6 +44,7 @@ export function useUserStatus(): UserStatus {
                     hasActiveSubscription: false,
                     hasCredits: false,
                     credits: 0,
+                    isPaidUser: false,
                 });
                 return;
             }
@@ -51,16 +56,16 @@ export function useUserStatus(): UserStatus {
                 }
 
                 const data = await response.json();
-                const hasActiveSubscription = data.subscriptionStatus === "active";
-                const hasCredits = (data.credits || 0) > 0;
-                const isPro = hasActiveSubscription || hasCredits;
 
                 setUserStatus({
-                    isPro,
+                    isPro: data.isPro, // Use consolidated isPro from backend
                     loading: false,
-                    hasActiveSubscription,
-                    hasCredits,
+                    hasActiveSubscription: data.subscriptionStatus === "active",
+                    hasCredits: (data.credits || 0) > 0,
                     credits: data.credits || 0,
+                    isPaidUser: data.isPaidUser || false,
+                    nextCreditReset: data.nextCreditReset,
+                    lastCreditReset: data.lastCreditReset,
                 });
             } catch (error) {
                 console.error("Error fetching user status:", error);
@@ -71,6 +76,7 @@ export function useUserStatus(): UserStatus {
                     hasActiveSubscription: false,
                     hasCredits: false,
                     credits: 0,
+                    isPaidUser: false,
                 });
             }
         };

@@ -100,6 +100,11 @@ export default function Navbar() {
               phoneUser?.name ||
               "User"}
           </span>
+          {session?.user?.subscriptionStatus === 'active' && (
+            <span className="bg-gradient-to-r from-yellow-400 to-yellow-600 text-[10px] font-bold text-white px-1.5 py-0.5 rounded ml-1 tracking-wide shadow-sm">
+              PRO
+            </span>
+          )}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56 bg-gray-800 border-gray-700 text-white">
@@ -253,13 +258,13 @@ export default function Navbar() {
             {/* Responsive Logo */}
             <Link href="/" className="flex items-center shrink-0 h-[72px]">
               <Image
-  src="/assets/logo.png"
-  alt="ShortlistAI Logo"
-  width={210}
-  height={72}
-  priority
-  className="object-contain w-[220px] h-[72px] pl-1"
-/>
+                src="/assets/logo.png"
+                alt="ShortlistAI Logo"
+                width={210}
+                height={72}
+                priority
+                className="object-contain w-[220px] h-[72px] pl-1"
+              />
 
             </Link>
 
@@ -280,37 +285,37 @@ export default function Navbar() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-  {/* Adjusted ThemeSwitch container to match button height */}
-  <div className="flex items-center h-8 w-8 justify-center">
-    <ThemeSwitch />
-  </div>
-  <div className="hidden md:flex">
-    {isAuthenticated ? (
-      <UserMenu />
-    ) : (
-      <div className="flex items-center gap-2">
-       <Button
-  variant="outline"
-  size="sm"
-  onClick={() => navigateTo("/signin")}
-  disabled={phoneLoading}
-  className="h-8 text-sm transition-colors border-gray-600 text-gray-200 bg-gray-900 hover:bg-gray-800 hover:border-gray-500"
->
-  Sign In
-</Button>
+            {/* Adjusted ThemeSwitch container to match button height */}
+            <div className="flex items-center h-8 w-8 justify-center">
+              <ThemeSwitch />
+            </div>
+            <div className="hidden md:flex">
+              {isAuthenticated ? (
+                <UserMenu />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigateTo("/signin")}
+                    disabled={phoneLoading}
+                    className="h-8 text-sm transition-colors border-gray-600 text-gray-200 bg-gray-900 hover:bg-gray-800 hover:border-gray-500"
+                  >
+                    Sign In
+                  </Button>
 
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => navigateTo("/signin?mode=signup")}
-          disabled={phoneLoading}
-          className="h-8 text-sm border-gray-900 bg-gray-900 text-white hover:bg-gray-700 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:border-gray-500 transition-colors"
-        >
-          Sign Up
-        </Button>
-      </div>
-    )}
-  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigateTo("/signin?mode=signup")}
+                    disabled={phoneLoading}
+                    className="h-8 text-sm border-gray-900 bg-gray-900 text-white hover:bg-gray-700 dark:border-gray-500 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700 dark:hover:border-gray-500 transition-colors"
+                  >
+                    Sign Up
+                  </Button>
+                </div>
+              )}
+            </div>
 
             <MobileMenu />
           </div>

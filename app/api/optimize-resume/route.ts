@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerSession } from 'next-auth';
-import { hasCredits, deductCredits } from '@/payment/creditService';
-import { CREDIT_COSTS } from '@/payment/config';
 import connectDB from '@/lib/mongodb';
 import Resume from '@/models/Resume';
 import AnalysisResult from '@/models/AnalysisResult';
@@ -52,19 +50,6 @@ export async function POST(req: NextRequest) {
     const userId = (user._id as any).toString();
     const userEmail = session.user.email;
 
-    // Check if user has enough credits
-    const hasSufficientCredits = await hasCredits(userId, CREDIT_COSTS.RESUME_OPTIMIZATION);
-
-    if (!hasSufficientCredits) {
-      return NextResponse.json(
-        {
-          error: 'Insufficient credits',
-          message: `You need ${CREDIT_COSTS.RESUME_OPTIMIZATION} credits to optimize a resume. Please purchase more credits.`,
-          requiredCredits: CREDIT_COSTS.RESUME_OPTIMIZATION
-        },
-        { status: 402 } // Payment Required
-      );
-    }
 
     const body: OptimizeResumeRequest = await req.json();
     const { analysisId, resumeText, jobDescription, suggestions, missingKeywords } = body;
@@ -157,14 +142,6 @@ export async function POST(req: NextRequest) {
 
     await newResume.save();
 
-    // Deduct credits AFTER successful optimization and save, using the MongoDB ObjectId
-    await deductCredits(
-      userId,
-      CREDIT_COSTS.RESUME_OPTIMIZATION,
-      'resume_optimization',
-      (newResume._id as any).toString(),
-      `${optimizedResumeData.personalDetails?.fullName || 'Optimized'}_Resume.pdf`
-    );
 
     return NextResponse.json({
       ...optimizedResumeData,

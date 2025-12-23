@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { useSession } from "next-auth/react";
 import {
-  Upload,
+  Upload as UploadIcon,
   CheckCircle,
   AlertCircle,
   ArrowLeft,
@@ -29,7 +29,21 @@ import {
   XCircle,
   Check,
   ArrowUp,
+  X,
+  ChevronRight,
+  Star,
+  Download,
+  Share2,
+  ArrowRight,
+  Layout,
+  Type,
+  Clock,
+  GraduationCap,
+  Award,
+  Languages,
+  Lock,
 } from "lucide-react";
+
 import { toast } from "@/hooks/use-toast";
 import { useCredits } from "@/hooks/useCredits";
 import InsufficientCreditsModal from "@/components/credits/InsufficientCreditsModal";
@@ -92,6 +106,131 @@ interface CompatibilityResult {
   experienceHas?: number;
   rawLLMData?: any;
 }
+// --- ADD THESE HELPER COMPONENTS BEFORE YOUR MAIN FUNCTION ---
+
+const SuggestionItem = ({ item, idx, copyToClipboard }: { item: any, idx: number, copyToClipboard: (text: string) => void }) => {
+  // Cast icons to any to fix TypeScript errors
+  const CopyIcon = Copy as any;
+  const InfoIcon = Info as any;
+
+  return (
+    <AccordionItem
+      value={`suggestion-${idx}`}
+      className="border-slate-200 dark:border-slate-700"
+    >
+      <AccordionTrigger className="text-left hover:no-underline">
+        <div className="flex items-start gap-2 w-full">
+          <span className={`mt-0.5 shrink-0 font-semibold ${item.category === 'text' ? 'text-blue-600 dark:text-blue-400' :
+            item.category === 'keyword' ? 'text-purple-600 dark:text-purple-400' :
+              'text-pink-600 dark:text-pink-400'
+            }`}>
+            {idx + 1}.
+          </span>
+          <div className="flex-1">
+            <span className="text-sm text-gray-900 dark:text-gray-100">
+              {item.suggestion}
+            </span>
+            {item.category && (
+              <span
+                className={`ml-2 px-2 py-0.5 text-xs rounded-full ${item.category === "text"
+                  ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
+                  : item.category === "keyword"
+                    ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
+                    : "bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800"
+                  }`}
+              >
+                {item.category}
+              </span>
+            )}
+          </div>
+        </div>
+      </AccordionTrigger>
+      <AccordionContent>
+        <div className="space-y-4 pt-2">
+          {/* Original Text Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
+                {item.originalText === "MISSING" ? "Missing from Resume" : "Current Text"}
+              </label>
+              {item.originalText !== "MISSING" && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    copyToClipboard(item.originalText);
+                  }}
+                  className="h-6 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
+                >
+                  <CopyIcon className="h-3 w-3 mr-1" /> Copy
+                </Button>
+              )}
+            </div>
+            <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
+              <p className="text-sm text-red-900 dark:text-red-100">
+                {item.originalText === "MISSING" ? "⚠️ This content is not present in your current resume" : item.originalText}
+              </p>
+            </div>
+          </div>
+
+          {/* Improved Text Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
+                Suggested Text
+              </label>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyToClipboard(item.improvedText);
+                }}
+                className="h-6 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
+              >
+                <CopyIcon className="h-3 w-3 mr-1" /> Copy
+              </Button>
+            </div>
+            <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
+              <p className="text-sm text-green-900 dark:text-green-100">
+                {item.improvedText}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
+            <InfoIcon className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
+            <p className="text-xs text-blue-900 dark:text-blue-100">
+              Copy the Suggested text and replace it in your resume for better ATS optimization
+            </p>
+          </div>
+        </div>
+      </AccordionContent>
+    </AccordionItem>
+  );
+};
+
+const UpgradeOverlay = ({ count, setShowUpgradeModal }: { count: number, setShowUpgradeModal: (open: boolean) => void }) => {
+  const SparklesIcon = Sparkles as any;
+  return (
+    <div className="relative mt-4 p-6 border rounded-lg bg-slate-50 dark:bg-slate-900 overflow-hidden text-center">
+      <div className="absolute inset-0 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 bg-white/50 dark:bg-black/50">
+        <p className="text-lg font-semibold mb-2 text-slate-800 dark:text-slate-200">
+          Unlock {count} More Suggestions
+        </p>
+        <Button onClick={() => setShowUpgradeModal(true)} className="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+          <SparklesIcon className="w-4 h-4 mr-2" /> Upgrade to Unlock All
+        </Button>
+      </div>
+      <div className="space-y-4 opacity-50 blur-sm pointer-events-none select-none">
+        <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+        <div className="h-24 bg-gray-100 dark:bg-gray-800 rounded w-full"></div>
+        <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
+      </div>
+    </div>
+  );
+};
 
 export default function JobMatchPage() {
   const router = useRouter();
@@ -841,7 +980,7 @@ export default function JobMatchPage() {
                     onDrop={handleDrop}
                     onDragOver={(e) => e.preventDefault()}
                   >
-                    <Upload
+                    <UploadIcon
                       className={`w-10 h-10 mx-auto mb-3 ${resumeValidationError
                         ? "text-red-500"
                         : pdfFile
@@ -1449,11 +1588,14 @@ export default function JobMatchPage() {
 
 
           {/* --- 3. AI Improvements (Original Layout - Kept at Bottom) --- */}
+
+
+          {/* --- NEW IMPROVEMENT SUGGESTIONS SECTION --- */}
           {result.suggestions && result.suggestions.length > 0 && (
-            <Card className="border-purple-200 dark:border-purple-800 shadow-lg mt-6 bg-white dark:bg-slate-900">
+            <Card className="border-purple-200 dark:border-purple-800 shadow-lg mt-6 mb-8 bg-white dark:bg-slate-900">
               <CardHeader className="pb-4 border-b border-slate-100 dark:border-slate-800">
                 <CardTitle className="flex items-center gap-2 text-purple-900 dark:text-purple-100">
-                  <Sparkles className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                  <Sparkles {...({ className: "h-5 w-5 text-purple-600 dark:text-purple-400" } as any)} />
                   Improvement Suggestions
                 </CardTitle>
                 <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -1463,437 +1605,88 @@ export default function JobMatchPage() {
               <CardContent className="pt-6">
                 <Tabs defaultValue="all" className="w-full">
                   <TabsList className="grid w-full grid-cols-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-                    <TabsTrigger
-                      value="all"
-                      className="rounded-lg py-2 text-sm font-semibold transition-all
-      data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:via-purple-500 data-[state=active]:to-pink-500 
-      data-[state=active]:text-white data-[state=active]:shadow-md
-      text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                    >
+                    <TabsTrigger value="all" className="rounded-lg py-2 text-sm font-semibold transition-all data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:via-purple-500 data-[state=active]:to-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md text-slate-700 dark:text-slate-300">
                       All ({result.suggestions.length})
                     </TabsTrigger>
-
-                    <TabsTrigger
-                      value="text"
-                      className="rounded-lg py-2 text-sm font-semibold transition-all
-      data-[state=active]:bg-blue-500 data-[state=active]:text-white data-[state=active]:shadow-md
-      text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                    >
-                      Text ({result.suggestions.filter(s => s.category === 'text').length})
+                    <TabsTrigger value="text" className="rounded-lg py-2 text-sm font-semibold transition-all data-[state=active]:bg-blue-500 data-[state=active]:text-white flex items-center gap-1 justify-center">
+                      Text {!isPro && <Lock {...({ className: "h-3 w-3 ml-1" } as any)} />} {isPro && `(${result.suggestions.filter((s: any) => s.category === 'text').length})`}
                     </TabsTrigger>
-
-                    <TabsTrigger
-                      value="keyword"
-                      className="rounded-lg py-2 text-sm font-semibold transition-all
-      data-[state=active]:bg-purple-500 data-[state=active]:text-white data-[state=active]:shadow-md
-      text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                    >
-                      Keywords ({result.suggestions.filter(s => s.category === 'keyword').length})
+                    <TabsTrigger value="keyword" className="rounded-lg py-2 text-sm font-semibold transition-all data-[state=active]:bg-purple-500 data-[state=active]:text-white flex items-center gap-1 justify-center">
+                      Keywords {!isPro && <Lock {...({ className: "h-3 w-3 ml-1" } as any)} />} {isPro && `(${result.suggestions.filter((s: any) => s.category === 'keyword').length})`}
                     </TabsTrigger>
-
-                    <TabsTrigger
-                      value="other"
-                      className="rounded-lg py-2 text-sm font-semibold transition-all
-      data-[state=active]:bg-pink-500 data-[state=active]:text-white data-[state=active]:shadow-md
-      text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200/50 dark:hover:bg-slate-700/50"
-                    >
-                      Other ({result.suggestions.filter(s => s.category === 'other').length})
+                    <TabsTrigger value="other" className="rounded-lg py-2 text-sm font-semibold transition-all data-[state=active]:bg-pink-500 data-[state=active]:text-white flex items-center gap-1 justify-center">
+                      Other {!isPro && <Lock {...({ className: "h-3 w-3 ml-1" } as any)} />} {isPro && `(${result.suggestions.filter((s: any) => s.category === 'other').length})`}
                     </TabsTrigger>
                   </TabsList>
-
-
-
 
                   {/* All Suggestions Tab */}
                   <TabsContent value="all" className="mt-4">
                     <Accordion type="single" collapsible className="w-full">
-                      {(isPro ? result.suggestions : result.suggestions.slice(0, 3)).map((item, idx) => (
-                        <AccordionItem
-                          key={idx}
-                          value={`all-${idx}`}
-                          className="border-slate-200 dark:border-slate-700"
-                        >
-                          <AccordionTrigger className="text-left hover:no-underline">
-                            <div className="flex items-start gap-2 w-full">
-                              <span className="text-purple-600 dark:text-purple-400 mt-0.5 shrink-0 font-semibold">
-                                {idx + 1}.
-                              </span>
-                              <div className="flex-1">
-                                <span className="text-sm text-gray-900 dark:text-gray-100">
-                                  {item.suggestion}
-                                </span>
-                                <span
-                                  className={`ml-2 px-2 py-0.5 text-xs rounded-full ${item.category === "text"
-                                    ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                                    : item.category === "keyword"
-                                      ? "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300 border border-purple-200 dark:border-purple-800"
-                                      : "bg-pink-100 dark:bg-pink-900/40 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-800"
-                                    }`}
-                                >
-                                  {item.category}
-                                </span>
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent>
-                            <div className="space-y-4 pt-2">
-                              {/* Original Text */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <label className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                                    {item.originalText === "MISSING"
-                                      ? "Missing from Resume"
-                                      : "Current Text (Replace This)"}
-                                  </label>
-                                  {item.originalText !== "MISSING" && (
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        copyToClipboard(item.originalText)
-                                      }
-                                      className="h-6 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                    >
-                                      <Copy className="h-3 w-3 mr-1" />
-                                      Copy
-                                    </Button>
-                                  )}
-                                </div>
-                                <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
-                                  <p className="text-sm text-red-900 dark:text-red-100">
-                                    {item.originalText === "MISSING"
-                                      ? "⚠️ This content is not present in your current resume"
-                                      : item.originalText}
-                                  </p>
-                                </div>
-                              </div>
-
-                              {/* Improved Text */}
-                              <div className="space-y-2">
-                                <div className="flex items-center justify-between">
-                                  <label className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                                    Suggested Text (Use This)
-                                  </label>
-                                  <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    onClick={() =>
-                                      copyToClipboard(item.improvedText)
-                                    }
-                                    className="h-6 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
-                                  >
-                                    <Copy className="h-3 w-3 mr-1" />
-                                    Copy
-                                  </Button>
-                                </div>
-                                <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
-                                  <p className="text-sm text-green-900 dark:text-green-100">
-                                    {item.improvedText}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/30 rounded-md border border-blue-200 dark:border-blue-800">
-                                <Info className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0" />
-                                <p className="text-xs text-blue-900 dark:text-blue-100">
-                                  Copy the Suggested text and replace it in your
-                                  resume for better ATS optimization
-                                </p>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
+                      {(isPro ? result.suggestions : result.suggestions.slice(0, 3)).map((item: any, idx: number) => (
+                        <SuggestionItem key={idx} item={item} idx={idx} copyToClipboard={copyToClipboard} />
                       ))}
                     </Accordion>
                     {!isPro && result.suggestions.length > 3 && (
-                      <div className="relative mt-4 p-6 border rounded-lg bg-slate-50 dark:bg-slate-900 overflow-hidden text-center">
-                        <div className="absolute inset-0 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center p-4 bg-white/50 dark:bg-black/50">
-                          <p className="text-lg font-semibold mb-2 text-slate-800 dark:text-slate-200">
-                            Unlock {result.suggestions.length - 3} More Suggestions
-                          </p>
-                          <Button
-                            onClick={() => setShowUpgradeModal(true)}
-                            className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg"
-                          >
-                            <Sparkles className="w-4 h-4 mr-2" />
-                            Upgrade to Unlock All
-                          </Button>
-                        </div>
-                        {/* Fake blurred items behind */}
-                        <div className="space-y-4 opacity-50 blur-sm pointer-events-none select-none">
-                          <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-                          <div className="h-24 bg-gray-100 dark:bg-gray-800 rounded w-full"></div>
-                          <div className="h-12 bg-gray-200 dark:bg-gray-800 rounded w-full"></div>
-                        </div>
-                      </div>
+                      <UpgradeOverlay count={result.suggestions.length - 3} setShowUpgradeModal={setShowUpgradeModal} />
                     )}
                   </TabsContent>
 
-                  {/* Text Improvements Tab */}
-                  <TabsContent value="text" className="mt-4">
-                    {result.textSuggestions &&
-                      result.textSuggestions.length > 0 ? (
-                      <Accordion type="single" collapsible className="w-full">
-                        {result.textSuggestions.map((item, idx) => (
-                          <AccordionItem
-                            key={idx}
-                            value={`text-${idx}`}
-                            className="border-slate-200 dark:border-slate-700"
-                          >
-                            <AccordionTrigger className="text-left hover:no-underline">
-                              <div className="flex items-start gap-2">
-                                <span className="text-blue-600 dark:text-blue-400 mt-0.5 shrink-0 font-semibold">
-                                  {idx + 1}.
-                                </span>
-                                <span className="text-sm text-gray-900 dark:text-gray-100">
-                                  {item.suggestion}
-                                </span>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4 pt-2">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                                      {item.originalText === "MISSING"
-                                        ? "Missing from Resume"
-                                        : "Current Text"}
-                                    </label>
-                                    {item.originalText !== "MISSING" && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() =>
-                                          copyToClipboard(item.originalText)
-                                        }
-                                        className="h-6 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                      >
-                                        <Copy className="h-3 w-3 mr-1" />
-                                        Copy
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
-                                    <p className="text-sm text-red-900 dark:text-red-100">
-                                      {item.originalText === "MISSING"
-                                        ? "⚠️ This content is not present in your current resume"
-                                        : item.originalText}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                                      Suggested Text
-                                    </label>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        copyToClipboard(item.improvedText)
-                                      }
-                                      className="h-6 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
-                                    >
-                                      <Copy className="h-3 w-3 mr-1" />
-                                      Copy
-                                    </Button>
-                                  </div>
-                                  <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
-                                    <p className="text-sm text-green-900 dark:text-green-100">
-                                      {item.improvedText}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-8">
-                        No text improvement suggestions available.
-                      </p>
-                    )}
-                  </TabsContent>
+                  {/* Dynamic Tabs for Text, Keyword, Other */}
+                  {['text', 'keyword', 'other'].map((type) => {
+                    // Explicitly type access to dynamic property
+                    const suggestions = (result as any)[`${type}Suggestions`] || [];
+                    const hasSuggestions = suggestions.length > 0;
+                    const displayCount = 1;
 
-                  {/* Keyword Improvements Tab */}
-                  <TabsContent value="keyword" className="mt-4">
-                    {result.keywordSuggestions &&
-                      result.keywordSuggestions.length > 0 ? (
-                      <Accordion type="single" collapsible className="w-full">
-                        {result.keywordSuggestions.map((item, idx) => (
-                          <AccordionItem
-                            key={idx}
-                            value={`keyword-${idx}`}
-                            className="border-slate-200 dark:border-slate-700"
-                          >
-                            <AccordionTrigger className="text-left hover:no-underline">
-                              <div className="flex items-start gap-2">
-                                <span className="text-purple-600 dark:text-purple-400 mt-0.5 shrink-0 font-semibold">
-                                  {idx + 1}.
-                                </span>
-                                <span className="text-sm text-gray-900 dark:text-gray-100">
-                                  {item.suggestion}
-                                </span>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4 pt-2">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                                      {item.originalText === "MISSING"
-                                        ? "Missing from Resume"
-                                        : "Current Text"}
-                                    </label>
-                                    {item.originalText !== "MISSING" && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() =>
-                                          copyToClipboard(item.originalText)
-                                        }
-                                        className="h-6 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                      >
-                                        <Copy className="h-3 w-3 mr-1" />
-                                        Copy
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
-                                    <p className="text-sm text-red-900 dark:text-red-100">
-                                      {item.originalText === "MISSING"
-                                        ? "⚠️ This content is not present in your current resume"
-                                        : item.originalText}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                                      Suggested Text
-                                    </label>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        copyToClipboard(item.improvedText)
-                                      }
-                                      className="h-6 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
-                                    >
-                                      <Copy className="h-3 w-3 mr-1" />
-                                      Copy
-                                    </Button>
-                                  </div>
-                                  <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
-                                    <p className="text-sm text-green-900 dark:text-green-100">
-                                      {item.improvedText}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-8">
-                        No keyword improvement suggestions available.
-                      </p>
-                    )}
-                  </TabsContent>
-
-                  {/* Other Improvements Tab */}
-                  <TabsContent value="other" className="mt-4">
-                    {result.otherSuggestions &&
-                      result.otherSuggestions.length > 0 ? (
-                      <Accordion type="single" collapsible className="w-full">
-                        {result.otherSuggestions.map((item, idx) => (
-                          <AccordionItem
-                            key={idx}
-                            value={`other-${idx}`}
-                            className="border-slate-200 dark:border-slate-700"
-                          >
-                            <AccordionTrigger className="text-left hover:no-underline">
-                              <div className="flex items-start gap-2">
-                                <span className="text-pink-600 dark:text-pink-400 mt-0.5 shrink-0 font-semibold">
-                                  {idx + 1}.
-                                </span>
-                                <span className="text-sm text-gray-900 dark:text-gray-100">
-                                  {item.suggestion}
-                                </span>
-                              </div>
-                            </AccordionTrigger>
-                            <AccordionContent>
-                              <div className="space-y-4 pt-2">
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-red-600 dark:text-red-400 uppercase tracking-wide">
-                                      {item.originalText === "MISSING"
-                                        ? "Missing from Resume"
-                                        : "Current Text"}
-                                    </label>
-                                    {item.originalText !== "MISSING" && (
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        onClick={() =>
-                                          copyToClipboard(item.originalText)
-                                        }
-                                        className="h-6 text-xs text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/30"
-                                      >
-                                        <Copy className="h-3 w-3 mr-1" />
-                                        Copy
-                                      </Button>
-                                    )}
-                                  </div>
-                                  <div className="p-3 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-md">
-                                    <p className="text-sm text-red-900 dark:text-red-100">
-                                      {item.originalText === "MISSING"
-                                        ? "⚠️ This content is not present in your current resume"
-                                        : item.originalText}
-                                    </p>
-                                  </div>
-                                </div>
-                                <div className="space-y-2">
-                                  <div className="flex items-center justify-between">
-                                    <label className="text-xs font-semibold text-green-600 dark:text-green-400 uppercase tracking-wide">
-                                      Suggested Text
-                                    </label>
-                                    <Button
-                                      size="sm"
-                                      variant="ghost"
-                                      onClick={() =>
-                                        copyToClipboard(item.improvedText)
-                                      }
-                                      className="h-6 text-xs text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-950/30"
-                                    >
-                                      <Copy className="h-3 w-3 mr-1" />
-                                      Copy
-                                    </Button>
-                                  </div>
-                                  <div className="p-3 bg-green-50 dark:bg-green-950/30 border border-green-200 dark:border-green-800 rounded-md">
-                                    <p className="text-sm text-green-900 dark:text-green-100">
-                                      {item.improvedText}
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        ))}
-                      </Accordion>
-                    ) : (
-                      <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-8">
-                        No other improvement suggestions available.
-                      </p>
-                    )}
-                  </TabsContent>
+                    return (
+                      <TabsContent key={type} value={type} className="mt-4">
+                        {!isPro ? (
+                          <div className="flex flex-col items-center justify-center py-12 px-4 text-center border rounded-lg bg-slate-50 dark:bg-slate-900 border-slate-200 dark:border-slate-800">
+                            <div className={`p-3 rounded-full mb-4 ${type === 'text' ? 'bg-blue-100 dark:bg-blue-900/30 text-blue-600' :
+                              type === 'keyword' ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600' :
+                                'bg-pink-100 dark:bg-pink-900/30 text-pink-600'
+                              }`}>
+                              <Lock {...({ className: "h-6 w-6" } as any)} />
+                            </div>
+                            <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+                              {type.charAt(0).toUpperCase() + type.slice(1)} Suggestions Locked
+                            </h3>
+                            <p className="text-sm text-slate-600 dark:text-slate-400 max-w-sm mb-6">
+                              Upgrade to Pro to access specific improvement suggestions separated by category.
+                            </p>
+                            <Button onClick={() => setShowUpgradeModal(true)} className={`${type === 'text' ? 'bg-blue-600 hover:bg-blue-700' :
+                              type === 'keyword' ? 'bg-purple-600 hover:bg-purple-700' :
+                                'bg-pink-600 hover:bg-pink-700'
+                              } text-white`}>
+                              Unlock {type.charAt(0).toUpperCase() + type.slice(1)} Suggestions
+                            </Button>
+                          </div>
+                        ) : (
+                          hasSuggestions ? (
+                            <>
+                              <Accordion type="single" collapsible className="w-full">
+                                {(isPro ? suggestions : suggestions.slice(0, displayCount)).map((item: any, idx: number) => (
+                                  <SuggestionItem key={idx} item={item} idx={idx} copyToClipboard={copyToClipboard} />
+                                ))}
+                              </Accordion>
+                              {!isPro && suggestions.length > displayCount && (
+                                <UpgradeOverlay count={suggestions.length - displayCount} setShowUpgradeModal={setShowUpgradeModal} />
+                              )}
+                            </>
+                          ) : (
+                            <p className="text-sm text-gray-600 dark:text-gray-400 text-center py-8">
+                              No {type} improvement suggestions available.
+                            </p>
+                          )
+                        )}
+                      </TabsContent>
+                    );
+                  })}
                 </Tabs>
               </CardContent>
             </Card>
           )}
-
+          {/* --- END NEW IMPROVEMENT SUGGESTIONS SECTION --- */}
 
 
 

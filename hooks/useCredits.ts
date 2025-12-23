@@ -7,7 +7,10 @@ interface CreditBalance {
   expiryDate: string | null;
   hasExpired: boolean;
   subscriptionStatus?: string;
+  isPaidUser?: boolean;
   isPro?: boolean;
+  lastCreditReset?: string | Date;
+  nextCreditReset?: string | Date;
 }
 
 let cachedBalance: CreditBalance | null = null;

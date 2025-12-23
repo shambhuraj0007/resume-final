@@ -52,7 +52,7 @@ export const RAZORPAY_CONFIG = {
 };
 
 // Free credits for new users
-export const FREE_CREDITS_ON_SIGNUP = 1;
+export const FREE_CREDITS_ON_SIGNUP = 3;
 
 // Credit costs for different actions
 export const CREDIT_COSTS = {

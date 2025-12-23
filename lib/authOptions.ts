@@ -84,6 +84,8 @@ export const authOptions: AuthOptions = {
           email: user.email,
           name: user.name,
           image: user.image,
+          subscriptionStatus: user.subscriptionStatus,
+          subscriptionProvider: user.subscriptionProvider
         };
       },
     }),
@@ -118,6 +120,10 @@ export const authOptions: AuthOptions = {
             await existingUser.save();
           }
 
+          // Pass subscription info to user object for JWT callback
+          user.subscriptionStatus = existingUser.subscriptionStatus;
+          user.subscriptionProvider = existingUser.subscriptionProvider;
+
           // Initialize credits
           const userId = (existingUser._id as any).toString();
           await initializeUserCredits(userId);
@@ -133,6 +139,7 @@ export const authOptions: AuthOptions = {
       if (user) {
         token.id = user.id;
         token.email = user.email;
+        token.subscriptionStatus = user.subscriptionStatus;
       }
       return token;
     },
@@ -140,6 +147,7 @@ export const authOptions: AuthOptions = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.email = token.email as string;
+        session.user.subscriptionStatus = token.subscriptionStatus as string | null | undefined;
       }
       return session;
     }

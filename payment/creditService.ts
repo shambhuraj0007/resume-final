@@ -1,5 +1,6 @@
 import Credit from '@/models/Credit';
 import AnalysisHistory from '@/models/AnalysisHistory';
+import User from '@/models/User';
 import { FREE_CREDITS_ON_SIGNUP } from './config';
 
 // Initialize credits for new user
@@ -11,6 +12,7 @@ export async function initializeUserCredits(userId: string) {
       const credit = new Credit({
         userId,
         credits: FREE_CREDITS_ON_SIGNUP,
+        lastResetDate: new Date(),
         expiryDate: null, // Free credits don't expire
       });
       await credit.save();
@@ -33,10 +35,36 @@ export async function getUserCredits(userId: string) {
       credit = await initializeUserCredits(userId);
     }
 
-    // Check if credits are expired
-    if (credit.expiryDate && new Date() > credit.expiryDate) {
-      credit.credits = 0;
+    // Lazy Monthly Reset for Free Users
+    // Check if 30 days have passed since last reset
+    const now = new Date();
+    const lastReset = credit.lastResetDate ? new Date(credit.lastResetDate) : new Date(credit.createdAt);
+    const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
+
+    if (now.getTime() - lastReset.getTime() >= thirtyDaysInMs) {
+      // It's time to reset free credits
+      // We set it to 3 as a fresh start for the month
+      credit.credits = Math.max(credit.credits, 3);
+      credit.lastResetDate = now;
       await credit.save();
+
+      // Also sync to User model
+      await User.findByIdAndUpdate(userId, { credits: credit.credits });
+    }
+
+    // Check if credits are expired (bought credits)
+    if (credit.expiryDate && new Date() > credit.expiryDate) {
+      // If expired, ensure they at least have the 3 free ones for the month
+      if (credit.credits > 3) {
+        credit.credits = 3;
+        await credit.save();
+        await User.findByIdAndUpdate(userId, { credits: credit.credits });
+      } else if (credit.credits < 3) {
+        // This shouldn't happen if monthly reset is working, but safety first
+        credit.credits = 3;
+        await credit.save();
+        await User.findByIdAndUpdate(userId, { credits: credit.credits });
+      }
     }
 
     return credit;
@@ -149,6 +177,9 @@ export async function addCredits(
     }
 
     await credit.save();
+
+    // Mark user as a Paid User (Pro status for downloads)
+    await User.findByIdAndUpdate(userId, { isPaidUser: true, credits: credit.credits });
 
     return credit;
   } catch (error) {

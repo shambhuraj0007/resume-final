@@ -2,9 +2,9 @@
 import { ThemeProvider } from "next-themes";
 import React from "react";
 
-export const ThemeWrapper = ({children}: {children: React.ReactNode}) => {
+export const ThemeWrapper = ({ children }: { children: React.ReactNode }) => {
     return (
-        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
             {children}
         </ThemeProvider>
     )

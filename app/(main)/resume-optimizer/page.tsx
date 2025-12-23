@@ -138,6 +138,7 @@ export default function ResumeOptimizerPage() {
           fontFamily: optimizedResume.fontFamily || 'Inter',
           sectionOrder: JSON.stringify(optimizedResume.sectionOrder || []),
           showIcons: (optimizedResume.showIcons ?? true).toString(),
+          watermark: (!isPro).toString(), // Add watermark flag to preview
         }).toString();
 
         const response = await fetch(`/api/pdf?${queryParams}`, {
@@ -179,7 +180,7 @@ export default function ResumeOptimizerPage() {
       isCancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [showPreview, optimizedResume, selectedTemplate, isEditing]);
+  }, [showPreview, optimizedResume, selectedTemplate, isEditing, isPro]); // Added isPro to deps
 
   const handleSave = async () => {
     if (!optimizedResume || !session?.user?.email) return;
@@ -388,11 +389,6 @@ export default function ResumeOptimizerPage() {
       return;
     }
 
-    const hasEnoughCredits = await checkCredits(5);
-    if (!hasEnoughCredits) {
-      setShowInsufficientModal(true);
-      return;
-    }
 
     setShowConfirmModal(true);
   };
@@ -514,6 +510,7 @@ export default function ResumeOptimizerPage() {
         fontFamily: optimizedResume.fontFamily || 'Inter',
         sectionOrder: JSON.stringify(optimizedResume.sectionOrder || []),
         showIcons: (optimizedResume.showIcons ?? true).toString(),
+        watermark: 'false', // Final download is always clean
       }).toString();
 
       const response = await fetch(`/api/pdf?${queryParams}`, {
@@ -606,13 +603,6 @@ export default function ResumeOptimizerPage() {
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3 pt-3">
-                <div className="flex items-center justify-between p-4 bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/30 dark:to-orange-950/30 rounded-xl border border-amber-200/50 dark:border-amber-800/50 shadow-sm">
-                  <span className="text-sm font-medium text-amber-900 dark:text-amber-100">Credit Cost</span>
-                  <div className="flex items-center gap-1.5">
-                    <Zap className="h-4 w-4 text-amber-600" />
-                    <span className="text-xl font-bold bg-gradient-to-r from-amber-600 to-orange-600 bg-clip-text text-transparent">5</span>
-                  </div>
-                </div>
 
                 <div className="space-y-2 text-sm">
                   <div className="font-medium text-slate-900 dark:text-slate-100">What you'll get:</div>
@@ -668,7 +658,7 @@ export default function ResumeOptimizerPage() {
           setShowInsufficientModal(false);
           setShowUpgradeModal(true);
         }}
-        requiredCredits={5}
+        requiredCredits={0}
       />
 
       <UpgradeModal open={showUpgradeModal} onOpenChange={setShowUpgradeModal} />
@@ -889,11 +879,23 @@ export default function ResumeOptimizerPage() {
                           <Button
                             onClick={downloadPDF}
                             size="sm"
-                            className="w-full h-8 text-xs bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 text-white"
+                            className={`w-full h-8 text-xs ${!isPro
+                              ? "bg-slate-400 hover:bg-slate-500 cursor-not-allowed"
+                              : "bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                              } text-white`}
                             disabled={isEditing}
                           >
-                            <Download className="mr-1.5 h-3 w-3" />
-                            Download PDF
+                            {!isPro ? (
+                              <>
+                                <Zap className="mr-1.5 h-3 w-3 text-yellow-300" />
+                                Download PDF (Pro)
+                              </>
+                            ) : (
+                              <>
+                                <Download className="mr-1.5 h-3 w-3" />
+                                Download PDF
+                              </>
+                            )}
                           </Button>
 
                           <Button

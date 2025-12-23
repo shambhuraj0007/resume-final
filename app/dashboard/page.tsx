@@ -5,7 +5,9 @@ import { useSession } from 'next-auth/react';
 import { redirect, useRouter } from 'next/navigation';
 import CreditBalance from '@/components/credits/CreditBalance';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { BarChart3, Award, Loader2, Sparkles } from 'lucide-react';
+import { BarChart3, Award, Loader2, Sparkles, CreditCard } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useCredits } from '@/hooks/useCredits';
 import { format } from 'date-fns';
 
 // Lazy load heavy components
@@ -20,6 +22,7 @@ export default function DashboardPage() {
   const [totalAnalyses, setTotalAnalyses] = useState<number | null>(null);
   const [memberSince, setMemberSince] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
+  const { balance, refreshBalance } = useCredits();
 
   if (status === 'loading') {
     return (
@@ -77,10 +80,12 @@ export default function DashboardPage() {
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4 lg:gap-6 mb-6 sm:mb-8 lg:mb-10">
+          {/* Credit Balance Component */}
           <div className="sm:col-span-2 lg:col-span-1">
             <CreditBalance onUpgradeClick={() => router.push('/pricing')} />
           </div>
 
+          {/* Total Analyses Card */}
           <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
@@ -112,35 +117,36 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
 
+          {/* Billing Card (Moved here, replacing Member Since) */}
           <Card className="border-2 hover:border-primary/50 transition-all duration-300 hover:shadow-lg">
             <CardHeader className="pb-3 sm:pb-4">
               <CardTitle className="flex items-center gap-2 text-base sm:text-lg">
                 <div className="p-1.5 rounded-lg bg-primary/10">
                   <Award className="h-4 w-4 sm:h-5 sm:w-5 text-primary flex-shrink-0" />
                 </div>
-                <span className="truncate">Member Since</span>
+                <span className="truncate">Billing</span>
               </CardTitle>
-              <CardDescription className="text-xs sm:text-sm">
-                Account created
-              </CardDescription>
+              <CardDescription className="text-xs sm:text-sm">Your subscription and credit status</CardDescription>
             </CardHeader>
             <CardContent className="pb-4 sm:pb-6">
-              {statsLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Loading...</span>
+              {session?.user?.subscriptionStatus === 'active' ? (
+                <div className="space-y-2">
+                  <p className="text-sm">Plan: Pro Monthly</p>
+                  <p className="text-sm">Renews: Jan 10, 2026</p>
+                  <Button variant="outline" size="sm" onClick={() => router.push('/profile')} className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 h-7 text-xs">
+                    Cancel
+                  </Button>
                 </div>
-              ) : memberSince ? (
-                <>
-                  <p className="text-2xl sm:text-3xl font-bold">
-                    {format(new Date(memberSince), 'MMM dd, yyyy')}
-                  </p>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    Welcome aboard! 🎉
-                  </p>
-                </>
+              ) : balance?.credits && balance?.credits > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-sm">Credits: {balance?.credits} left</p>
+                  <p className="text-sm">Expires: {balance?.expiryDate ? format(new Date(balance?.expiryDate), 'MMM dd, yyyy') : 'N/A'}</p>
+                </div>
               ) : (
-                <p className="text-sm text-muted-foreground">Not available</p>
+                <div className="space-y-2">
+                  <p className="text-sm">Plan: Free</p>
+                  <p className="text-sm">Total scans remaining this month: {totalAnalyses ?? 0}</p>
+                </div>
               )}
             </CardContent>
           </Card>

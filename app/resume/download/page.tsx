@@ -31,6 +31,7 @@ const DownloadPage = () => {
   const [fontFamily, setFontFamily] = useState<string | undefined>(undefined);
   const [sectionOrder, setSectionOrder] = useState<string[] | undefined>(undefined);
   const [showIcons, setShowIcons] = useState<boolean | undefined>(undefined);
+  const [isWatermarked, setIsWatermarked] = useState<boolean>(false);
 
   useEffect(() => {
     const data = searchParams.get('data');
@@ -39,6 +40,7 @@ const DownloadPage = () => {
     const font = searchParams.get('fontFamily');
     const order = searchParams.get('sectionOrder');
     const showIconsParam = searchParams.get('showIcons');
+    const watermark = searchParams.get('watermark');
 
     if (Array.isArray(data) || Array.isArray(template) || Array.isArray(color) || Array.isArray(font) || Array.isArray(order)) {
       console.error('Invalid query parameters');
@@ -51,6 +53,7 @@ const DownloadPage = () => {
         setSelectedTemplate(template as TemplateKey);
         setAccentColor(color || undefined);
         setFontFamily(font || undefined);
+        setIsWatermarked(watermark === 'true');
         if (order) {
           setSectionOrder(JSON.parse(order));
         } else {
@@ -100,8 +103,18 @@ const DownloadPage = () => {
           margin: '0.5cm',
           padding: '1.5cm 2cm',
           boxSizing: 'border-box',
+          position: 'relative',
         }}
       >
+        {isWatermarked && (
+          <div className="watermark-container">
+            {[...Array(15)].map((_, i) => (
+              <div key={i} className="watermark-text">
+                SHORTLISTAI PREVIEW
+              </div>
+            ))}
+          </div>
+        )}
         <TemplateComponent
           resumeData={mergedResumeData}
           isEditing={false}
@@ -172,6 +185,33 @@ const DownloadPage = () => {
         p, li {
           orphans: 2;
           widows: 2;
+        }
+
+        .watermark-container {
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: 100%;
+          height: 100%;
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          grid-template-rows: repeat(5, 1fr);
+          pointer-events: none;
+          z-index: 1000;
+          overflow: hidden;
+          opacity: 0.15;
+          user-select: none;
+        }
+
+        .watermark-text {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 30px;
+          font-weight: bold;
+          color: #000;
+          transform: rotate(-30deg);
+          white-space: nowrap;
         }
       `}</style>
     </>

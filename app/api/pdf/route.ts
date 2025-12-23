@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:8888");
 
     const url = new URL(`${baseUrl}/resume/download`);
+    // Pass everything through to the download page
     url.search = searchParams.toString();
 
     console.log("[DEBUG] Navigating to:", url.toString());

@@ -36,12 +36,19 @@ export async function GET(req: NextRequest) {
     const userId = (user._id as any).toString();
     const credit = await getUserCredits(userId);
 
+    // Calculate next reset date (30 days after last reset)
+    const lastResetDate = credit.lastResetDate || credit.createdAt;
+    const nextResetDate = new Date(new Date(lastResetDate).getTime() + 30 * 24 * 60 * 60 * 1000);
+
     return NextResponse.json({
       credits: credit.credits,
       expiryDate: credit.expiryDate,
       hasExpired: credit.expiryDate ? new Date() > credit.expiryDate : false,
       subscriptionStatus: user.subscriptionStatus,
-      isPro: user.subscriptionStatus === 'active',
+      isPaidUser: user.isPaidUser || false,
+      isPro: user.subscriptionStatus === 'active' || user.isPaidUser === true,
+      lastCreditReset: lastResetDate,
+      nextCreditReset: nextResetDate,
     });
   } catch (error) {
     console.error('Error fetching credit balance:', error);

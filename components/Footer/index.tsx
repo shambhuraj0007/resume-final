@@ -13,7 +13,7 @@ export function Footer() {
           {/* Left: Copyright & Quick Links */}
           <div className="flex flex-col sm:flex-row items-center gap-3 sm:gap-6">
             <p className="text-xs sm:text-sm">
-              © {currentYear} © 2025 ShortlistAI.xyz. A brand of MindMach Technologies Pvt Ltd. All rights reserved
+              © {currentYear} ShortlistAI.xyz. A brand of MindMach Technologies Pvt Ltd. All rights reserved
             </p>
 
             <div className="flex items-center gap-4">

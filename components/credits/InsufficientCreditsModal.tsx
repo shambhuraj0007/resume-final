@@ -1,6 +1,7 @@
 'use client';
 
 import { AlertCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import {
   Dialog,
   DialogContent,
@@ -15,7 +16,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 interface InsufficientCreditsModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onUpgrade: () => void;
+  onUpgrade?: () => void; // Made optional since we are handling navigation internally now
   requiredCredits?: number;
   title?: string;
   description?: string;
@@ -31,9 +32,18 @@ export default function InsufficientCreditsModal({
   description = "You don't have enough credits to perform this action.",
   actionLabel = "Buy Credits"
 }: InsufficientCreditsModalProps) {
+  const router = useRouter();
+
   const handleUpgrade = () => {
     onOpenChange(false);
-    onUpgrade();
+
+    // Navigate to pricing page
+    router.push('/pricing');
+
+    // Optionally call the onUpgrade prop if provided
+    if (onUpgrade) {
+      onUpgrade();
+    }
   };
 
   return (

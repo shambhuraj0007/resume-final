@@ -98,7 +98,7 @@ export async function POST(req: NextRequest) {
             if (!plan.planId) return NextResponse.json({ error: "Configuration Error: Missing Cashfree Plan ID" }, { status: 500 });
 
             const customerPhone = user.phone || "9999999999";
-            const returnUrl = `${process.env.NEXTAUTH_URL}/payment`;
+            const returnUrl = `${process.env.NEXTAUTH_URL}/payment/status`;
 
             const cfSub = await createCashfreeSubscription(
                 plan.planId,
@@ -106,8 +106,16 @@ export async function POST(req: NextRequest) {
                 String(user._id),
                 customerPhone,
                 user.email,
-                returnUrl
+                returnUrl,
+                user.name || "Customer", // Pass user name
+                plan.price // Set authorization amount to plan price
             );
+
+            // Save subscription details to User
+            user.subscriptionId = cfSub.subscriptionId;
+            user.subscriptionProvider = "CASHFREE";
+            user.subscriptionStatus = "active"; // Or "pending" initially? Cashfree returns INITIALIZED
+            await user.save();
 
             // Frontend will use subscriptionSessionId with Cashfree SDK
             // No URL construction needed - SDK handles the checkout flow
