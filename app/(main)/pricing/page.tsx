@@ -464,9 +464,7 @@ export default function PricingPage() {
           <h1 className="text-4xl sm:text-5xl font-extrabold tracking-tight text-slate-900 dark:text-white mb-2">
             Flexible, pay-as-you-go pricing
           </h1>
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            Showing pricing for: {pricingData.region}
-          </p>
+
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-stretch pt-4">
@@ -689,7 +687,7 @@ export default function PricingPage() {
                         )}
                       </Button>
                     ) : (
-                      <div className="w-full mb-8 relative z-0 min-h-[48px]">
+                      <div className="w-full mb-8 relative z-0 min-h-[52px]" style={{ colorScheme: "light" }}>
                         <Button
                           disabled
                           className="w-full h-12 rounded-full text-base font-bold mb-8 bg-slate-100 text-slate-400 cursor-not-allowed"
@@ -730,16 +728,27 @@ export default function PricingPage() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 0.2 + idx * 0.1 }}
-                  className={`relative flex flex-col h-full ${CARD_MIN_H} p-6 rounded-[2rem] bg-white dark:bg-slate-900 border-[1.5px] ${isQuarterly || isMonthly
-                    ? "border-indigo-400 dark:border-indigo-500"
-                    : "border-indigo-200 dark:border-indigo-800"
+                  className={`relative flex flex-col h-full ${CARD_MIN_H} p-6 rounded-[2rem] bg-white dark:bg-slate-900 border-[3px] ${sub.id === "pro-monthly-inr" ||
+                    sub.id === "pro-monthly-usd" ||
+                    sub.id === "pro-monthly-eur" ||
+                    sub.id === "pro-monthly-gbp"
+                    ? "border-[#ffc83e]"
+                    : "border-indigo-400 dark:border-indigo-500"
                     } shadow-xl transition-all duration-300`}
+
                 >
                   {isMonthly && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[11px] font-bold uppercase tracking-widest shadow-lg z-20 border-2 border-white dark:border-slate-900">
+                    <div className={`absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full text-[11px] font-bold uppercase tracking-widest shadow-lg z-20 border-2 border-white dark:border-slate-900 ${sub.id === "pro-monthly-inr" ||
+                      sub.id === "pro-monthly-usd" ||
+                      sub.id === "pro-monthly-eur" ||
+                      sub.id === "pro-monthly-gbp"
+                      ? "bg-[#ffc83e] text-[rgb(69,69,69)]"
+                      : "bg-slate-900 dark:bg-white text-white dark:text-slate-900"
+                      }`}>
                       Most Popular
                     </div>
                   )}
+
                   {isQuarterly && (
                     <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-indigo-600 text-white text-[11px] font-bold uppercase tracking-widest shadow-lg z-20 border-2 border-white dark:border-slate-900">
                       Best Value
@@ -752,7 +761,7 @@ export default function PricingPage() {
                         {sub.name}
                       </h3>
                       <span className="bg-[#5c3bfa] text-white text-[10px] font-bold px-2 py-1 rounded-sm">
-                        75% OFF
+                        {sub.discount || "75% OFF"}
                       </span>
                     </div>
                   </div>
@@ -770,7 +779,7 @@ export default function PricingPage() {
                         <p className="text-xl text-slate-500 dark:text-slate-400 leading-normal">
                           Use up to{" "}
                           <span className="font-bold text-slate-900 dark:text-white">
-                            200 credits
+                            {sub.credits || 200} credits
                           </span>{" "}
                           per month
                         </p>
@@ -778,7 +787,7 @@ export default function PricingPage() {
                         <p className="text-xl text-slate-500 dark:text-slate-400 leading-normal">
                           Includes{" "}
                           <span className="font-bold text-slate-900 dark:text-white">
-                            600 credits
+                            {sub.credits || 600} credits
                           </span>{" "}
                           for 3 months
                         </p>
@@ -808,9 +817,18 @@ export default function PricingPage() {
                         {cta}
                       </Button>
                     ) : (
-                      <div className="w-full mb-8 relative z-0 min-h-[48px]">
+                      <div className="w-full mb-8 relative z-0 min-h-[52px]" style={{ colorScheme: "light" }}>
+
+
                         <PayPalButtons
-                          style={{ shape: "pill", color: "blue", layout: "vertical", label: "subscribe", height: 48 }}
+                          style={{
+                            layout: "vertical",
+                            color: "silver",
+                            shape: "pill",
+                            label: "subscribe",
+                            height: 52,
+                            tagline: false
+                          }}
                           createSubscription={async (data, actions) => {
                             try {
                               console.log("createSubscription for planKey:", sub.id, "region:", region);

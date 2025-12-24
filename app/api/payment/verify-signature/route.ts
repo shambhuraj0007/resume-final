@@ -33,11 +33,11 @@ import Transaction from "@/models/Transaction";
 // Map plans to credits/validity (Sync with Webhook)
 const PLAN_CONFIG: Record<string, { credits: number, validity: number, type: string, amount: number, currency: string }> = {
     "pro-monthly-inr": { credits: 200, validity: 1, type: "pro", amount: 599, currency: "INR" },
-    "pro-quarterly-inr": { credits: 600, validity: 3, type: "pro", amount: 1499, currency: "INR" },
+    "pro-quarterly-inr": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" },
     "pro_monthly_599": { credits: 200, validity: 1, type: "pro", amount: 599, currency: "INR" },
-    "pro_quarterly_1499": { credits: 600, validity: 3, type: "pro", amount: 1499, currency: "INR" },
+    "pro_quarterly_1499": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" },
     "PRO_MONTHLY": { credits: 200, validity: 1, type: "pro", amount: 599, currency: "INR" },
-    "PRO_QUARTERLY": { credits: 600, validity: 3, type: "pro", amount: 1499, currency: "INR" }
+    "PRO_QUARTERLY": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" }
 };
 
 export async function GET(req: NextRequest) {

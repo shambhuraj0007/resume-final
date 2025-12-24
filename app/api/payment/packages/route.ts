@@ -46,8 +46,8 @@ function buildPricingForRegion(region: Region) {
         { id: "50-scan-pack", name: "50-scan Pack", price: 599, credits: 50, save: "save ~50%" }
       ],
       subscriptions: [
-        { id: "pro-monthly-inr", name: "Pro Monthly", price: 599, period: "month", billing: "Monthly" },
-        { id: "pro-quarterly-inr", name: "Pro Quarterly", price: 1499, period: "3 months", billing: "Every 3 months" }
+        { id: "pro-monthly-inr", name: "Pro Monthly", price: 599, period: "month", billing: "Monthly", credits: 200, discount: "75% OFF" },
+        { id: "pro-quarterly-inr", name: "Pro Quarterly", price: 1499, period: "3 months", billing: "Every 3 months", credits: 700, discount: "80% OFF" }
       ]
     };
   } else if (region === 'EUROPE') {
@@ -56,8 +56,8 @@ function buildPricingForRegion(region: Region) {
       free_tier: { title: "Free", price: 0, features: ["3 CV↔JD scans/month", "Watermarked Resume"] },
       credit_packs: [],
       subscriptions: [
-        { id: "pro-monthly-eur", name: "Pro Monthly", price: 14, period: "month", billing: "Monthly" },
-        { id: "pro-quarterly-eur", name: "Pro Quarterly", price: 36, period: "3 months", billing: "Every 3 months" }
+        { id: "pro-monthly-eur", name: "Pro Monthly", price: 14, period: "month", billing: "Monthly", credits: 200, discount: "75% OFF" },
+        { id: "pro-quarterly-eur", name: "Pro Quarterly", price: 36, period: "3 months", billing: "Every 3 months", credits: 700, discount: "80% OFF" }
       ]
     };
   } else if (region === 'UK') {
@@ -66,8 +66,8 @@ function buildPricingForRegion(region: Region) {
       free_tier: { title: "Free", price: 0, features: ["3 CV↔JD scans/month", "Watermarked Resume"] },
       credit_packs: [],
       subscriptions: [
-        { id: "pro-monthly-gbp", name: "Pro Monthly", price: 13, period: "month", billing: "Monthly" },
-        { id: "pro-quarterly-gbp", name: "Pro Quarterly", price: 33, period: "3 months", billing: "Every 3 months" }
+        { id: "pro-monthly-gbp", name: "Pro Monthly", price: 13, period: "month", billing: "Monthly", credits: 200, discount: "75% OFF" },
+        { id: "pro-quarterly-gbp", name: "Pro Quarterly", price: 33, period: "3 months", billing: "Every 3 months", credits: 700, discount: "80% OFF" }
       ]
     };
   }
@@ -77,8 +77,8 @@ function buildPricingForRegion(region: Region) {
     free_tier: { title: "Free", price: 0, features: ["3 CV↔JD scans/month", "Watermarked Resume"] },
     credit_packs: [],
     subscriptions: [
-      { id: "pro-monthly-usd", name: "Pro Monthly", price: 15, period: "month", billing: "Monthly" },
-      { id: "pro-quarterly-usd", name: "Pro Quarterly", price: 39, period: "3 months", billing: "Every 3 months" }
+      { id: "pro-monthly-usd", name: "Pro Monthly", price: 15, period: "month", billing: "Monthly", credits: 200, discount: "75% OFF" },
+      { id: "pro-quarterly-usd", name: "Pro Quarterly", price: 39, period: "3 months", billing: "Every 3 months", credits: 700, discount: "80% OFF" }
     ]
   };
 }

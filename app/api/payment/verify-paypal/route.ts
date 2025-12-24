@@ -12,13 +12,13 @@ import { addCredits } from "@/payment/creditService";
 const PAYPAL_PLANS: Record<string, { credits: number, validity: number, amount: number, currency: string }> = {
     // USA
     "P-03734607T4219344GNFFW47A": { credits: 200, validity: 1, amount: 15, currency: "USD" },
-    "P-2GF314033P139074HNFFW5NA": { credits: 600, validity: 3, amount: 39, currency: "USD" },
+    "P-2GF314033P139074HNFFW5NA": { credits: 700, validity: 3, amount: 39, currency: "USD" },
     // EUR
     "P-7JE10424P3529311VNFFW5YY": { credits: 200, validity: 1, amount: 14, currency: "EUR" },
-    "P-5TT83749C44797628NFFW6FY": { credits: 600, validity: 3, amount: 36, currency: "EUR" },
+    "P-5TT83749C44797628NFFW6FY": { credits: 700, validity: 3, amount: 36, currency: "EUR" },
     // GBP
     "P-8CY85830BD0723543NFFW6QA": { credits: 200, validity: 1, amount: 13, currency: "GBP" },
-    "P-6H5833252X1261013NFFW6YQ": { credits: 600, validity: 3, amount: 33, currency: "GBP" }
+    "P-6H5833252X1261013NFFW6YQ": { credits: 700, validity: 3, amount: 33, currency: "GBP" }
 };
 
 export async function POST(req: NextRequest) {
