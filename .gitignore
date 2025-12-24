@@ -1,4 +1,3 @@
-
 # Environment files
 .env
 .env.local.example
@@ -6,14 +5,9 @@
 .env.development.local
 .env.test.local
 .env.production.local
-node_modules/
-.next/
 
-
-# MacOS
-.DS_Store
 # Logs
-# npm-debug.log*
+npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
@@ -33,6 +27,7 @@ dist/
 *.sublime-project
 
 # OS files
+.DS_Store
 Thumbs.db
 ehthumbs.db
 

@@ -1,4 +1,5 @@
-const PAYPAL_API_BASE = process.env.NODE_ENV === "production"
+const PAYPAL_MODE = process.env.PAYPAL_MODE || (process.env.NODE_ENV === "production" ? "live" : "sandbox");
+const PAYPAL_API_BASE = PAYPAL_MODE === "live"
     ? "https://api-m.paypal.com"
     : "https://api-m.sandbox.paypal.com";
 

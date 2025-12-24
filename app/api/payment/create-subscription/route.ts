@@ -6,60 +6,117 @@ import { createCashfreeSubscription } from "@/payment/cashfree";
 import dbConnect from "@/lib/mongodb";
 
 // Plan Configurations
+// const SUBSCRIPTION_PLANS: any = {
+//     // India (Cashfree)
+//     "pro-monthly-inr": {
+//         provider: "CASHFREE",
+//         planId: process.env.CASHFREE_PLAN_MONTHLY_ID || "PRO_MONTHLY",
+//         price: 599,
+//         currency: "INR"
+//     },
+//     "pro-quarterly-inr": {
+//         provider: "CASHFREE",
+//         planId: process.env.CASHFREE_PLAN_QUARTERLY_ID || "PRO_QUARTERLY",
+//         price: 1499,
+//         currency: "INR"
+//     },
+//     // International (PayPal)
+//     "pro-monthly-usd": {
+//         provider: "PAYPAL",
+//         planId: "P-05M666451V631953LNFFLHDY",
+//         price: 15,
+//         currency: "USD"
+//     },
+//     "pro-quarterly-usd": {
+//         provider: "PAYPAL",
+//         planId: "P-4M9785276H958822KNFFLIJA",
+//         price: 39,
+//         currency: "USD"
+//     },
+//     // Europe (PayPal)
+//     "pro-monthly-eur": {
+//         provider: "PAYPAL",
+//         planId: "P-6M580881VM893674TNFFLI2Y",
+//         price: 14,
+//         currency: "EUR"
+//     },
+//     "pro-quarterly-eur": {
+//         provider: "PAYPAL",
+//         planId: "P-4X993862FS1550934NFFLJKY",
+//         price: 36,
+//         currency: "EUR"
+//     },
+//     "pro-monthly-gbp": {
+//         provider: "PAYPAL",
+//         planId: "P-09G239902Y3340720NFFLJXY",
+//         price: 13,
+//         currency: "GBP"
+//     },
+//     "pro-quarterly-gbp": {
+//         provider: "PAYPAL",
+//         planId: "P-10X49417336220825NFFLKJA",
+//         price: 33,
+//         currency: "GBP"
+//     }
+// };
 const SUBSCRIPTION_PLANS: any = {
     // India (Cashfree)
     "pro-monthly-inr": {
         provider: "CASHFREE",
         planId: process.env.CASHFREE_PLAN_MONTHLY_ID || "PRO_MONTHLY",
         price: 599,
-        currency: "INR"
+        currency: "INR",
     },
     "pro-quarterly-inr": {
         provider: "CASHFREE",
         planId: process.env.CASHFREE_PLAN_QUARTERLY_ID || "PRO_QUARTERLY",
         price: 1499,
-        currency: "INR"
+        currency: "INR",
     },
-    // International (PayPal)
+
+    // USA (PayPal – sandbox)
     "pro-monthly-usd": {
         provider: "PAYPAL",
-        planId: process.env.PAYPAL_PLAN_MONTHLY_ID || "P-MONTHLY-USD",
+        planId: "P-03734607T4219344GNFFW47A",
         price: 15,
-        currency: "USD"
+        currency: "USD",
     },
     "pro-quarterly-usd": {
         provider: "PAYPAL",
-        planId: process.env.PAYPAL_PLAN_QUARTERLY_ID || "P-QUARTERLY-USD",
+        planId: "P-2GF314033P139074HNFFW5NA",
         price: 39,
-        currency: "USD"
+        currency: "USD",
     },
-    // Europe (PayPal) - Mapping to same PayPal plans but maybe different plan ID if multi-currency plans needed
-    // For simplicity, assuming PayPal handles currency conversion or distinct plans
+
+    // Europe (PayPal – sandbox)
     "pro-monthly-eur": {
         provider: "PAYPAL",
-        planId: process.env.PAYPAL_PLAN_MONTHLY_EUR_ID,
+        planId: "P-7JE10424P3529311VNFFW5YY",
         price: 14,
-        currency: "EUR"
+        currency: "EUR",
     },
     "pro-quarterly-eur": {
         provider: "PAYPAL",
-        planId: process.env.PAYPAL_PLAN_QUARTERLY_EUR_ID,
+        planId: "P-5TT83749C44797628NFFW6FY",
         price: 36,
-        currency: "EUR"
+        currency: "EUR",
     },
+
+    // UK (PayPal – sandbox)
     "pro-monthly-gbp": {
         provider: "PAYPAL",
-        planId: process.env.PAYPAL_PLAN_MONTHLY_GBP_ID,
+        planId: "P-8CY85830BD0723543NFFW6QA",
         price: 13,
-        currency: "GBP"
+        currency: "GBP",
     },
     "pro-quarterly-gbp": {
         provider: "PAYPAL",
-        planId: process.env.PAYPAL_PLAN_QUARTERLY_GBP_ID,
+        planId: "P-6H5833252X1261013NFFW6YQ",
         price: 33,
-        currency: "GBP"
-    }
+        currency: "GBP",
+    },
 };
+
 
 export async function POST(req: NextRequest) {
     try {
