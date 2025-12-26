@@ -12,6 +12,17 @@ const CREDIT_PACKS: any = {
   "5-scan-pack": { credits: 5, price: 99, name: "5-scan Pack" },
   "20-scan-pack": { credits: 20, price: 299, name: "20-scan Pack" },
   "50-scan-pack": { credits: 50, price: 599, name: "50-scan Pack" },
+  // Pro plans treated as one-time credit packs for Cashfree
+  "pro-monthly-inr": {
+    credits: 200,
+    price: 599,
+    name: "Pro Monthly (200 credits)",
+  },
+  "pro-quarterly-inr": {
+    credits: 700,
+    price: 1499,
+    name: "Pro Quarterly (700 credits)",
+  },
 };
 
 export async function POST(req: NextRequest) {

@@ -346,46 +346,29 @@ export default function PricingPage() {
   };
 
   const handleSubscriptionCashfree = async (planKey: string) => {
+    // For India, treat Pro Monthly/Quarterly as one-time Cashfree credit packs
     if (!session && !isAuthenticated)
       return router.push("/signin?callbackUrl=/pricing");
 
     try {
-      const res = await fetch("/api/payment/create-subscription", {
+      const res = await fetch("/api/payment/create-order", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey, region }),
+        body: JSON.stringify({ packageType: planKey, region }),
       });
-      const data = await res.json();
 
+      const data = await res.json();
       if (data.error) throw new Error(data.error);
-      if (!data.subscriptionSessionId) {
-        throw new Error("No subscription session ID returned");
+      if (!data.payment_session_id) {
+        throw new Error("No payment session ID returned");
       }
 
-      const cashfree = (window as any).Cashfree({
-        mode: process.env.NODE_ENV === "production" ? "production" : "sandbox",
-      });
-
-      cashfree
-        .subscriptionsCheckout({
-          subsSessionId: data.subscriptionSessionId,
-          redirectTarget: "_self",
-        })
-        .then((result: any) => {
-          if (result?.error) {
-            console.error("Checkout error:", result.error);
-            toast({
-              title: "Checkout Failed",
-              description:
-                result.error.message || "Failed to open checkout",
-              variant: "destructive",
-            });
-          }
-        });
+      openCashfreeCheckout(data.payment_session_id);
     } catch (error: any) {
+      console.error("Cashfree Pro purchase failed:", error);
       toast({
-        title: "Subscription Failed",
-        description: error.message,
+        title: "Purchase Failed",
+        description: error.message || "Failed to start payment",
         variant: "destructive",
       });
     }
