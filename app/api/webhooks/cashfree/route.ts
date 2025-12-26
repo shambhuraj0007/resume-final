@@ -9,17 +9,17 @@ import { withRetry } from "@/lib/retry";
 // Plan Configuration
 const PLAN_CONFIG: Record<string, { credits: number; validity: number; type: string; name: string }> = {
   "pro-monthly-inr": { credits: 200, validity: 1, type: "pro", name: "Pro Monthly" },
-  "pro-quarterly-inr": { credits: 600, validity: 3, type: "pro", name: "Pro Quarterly" },
+  "pro-quarterly-inr": { credits: 700, validity: 3, type: "pro", name: "Pro Quarterly" },
   "shortlistai_pro_monthly": { credits: 200, validity: 1, type: "pro", name: "Pro Monthly" },
-  "shortlistai_pro_quarterly": { credits: 600, validity: 3, type: "pro", name: "Pro Quarterly" },
+  "shortlistai_pro_quarterly": { credits: 700, validity: 3, type: "pro", name: "Pro Quarterly" },
   "pro_monthly_599": { credits: 200, validity: 1, type: "pro", name: "Pro Monthly" },
-  "pro_quarterly_1499": { credits: 600, validity: 3, type: "pro", name: "Pro Quarterly" },
+  "pro_quarterly_1499": { credits: 700, validity: 3, type: "pro", name: "Pro Quarterly" },
   "PRO_MONTHLY": { credits: 200, validity: 1, type: "pro", name: "Pro Monthly" },
-  "PRO_QUARTERLY": { credits: 600, validity: 3, type: "pro", name: "Pro Quarterly" },
-  "pack-10": { credits: 10, validity: 3, type: "pack", name: "10 Credits Pack" },
-  "pack-50": { credits: 50, validity: 3, type: "pack", name: "50 Credits Pack" },
-  "pack-100": { credits: 100, validity: 3, type: "pack", name: "100 Credits Pack" },
-  "pack-200": { credits: 200, validity: 3, type: "pack", name: "200 Credits Pack" },
+  "PRO_QUARTERLY": { credits: 700, validity: 3, type: "pro", name: "Pro Quarterly" },
+  "pack-10": { credits: 10, validity: 1, type: "pack", name: "10 Credits Pack" },
+  "pack-50": { credits: 50, validity: 1, type: "pack", name: "50 Credits Pack" },
+  "pack-100": { credits: 100, validity: 1, type: "pack", name: "100 Credits Pack" },
+  "pack-200": { credits: 200, validity: 1, type: "pack", name: "200 Credits Pack" },
 };
 
 // Verify Cashfree Signature

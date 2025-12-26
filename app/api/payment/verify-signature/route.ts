@@ -116,6 +116,42 @@ export async function GET(req: NextRequest) {
                             if (cfInternalId) {
                                 user.cashfreeSubscriptionId = cfInternalId;
                             }
+
+                            // ✅ SET SUBSCRIPTION DATES
+const now = new Date();
+user.subscriptionStartDate = now;
+
+// Calculate end date based on plan type
+const planConfig = PLAN_CONFIG[planId];
+if (planConfig) {
+  const endDate = new Date(now);
+  
+  // Add months based on plan validity
+  // Monthly = 1 month, Quarterly = 3 months
+  endDate.setMonth(endDate.getMonth() + planConfig.validity);
+  
+  // Handle edge case: if current day doesn't exist in target month
+  // (e.g., Jan 31 + 1 month = Feb 28/29)
+  if (endDate.getDate() !== now.getDate()) {
+    // Set to last day of the month
+    endDate.setDate(0);
+  }
+  
+  user.subscriptionEndDate = endDate;
+  
+  console.log(`[VERIFY_SIGNATURE] ✅ Subscription dates set:`);
+  console.log(`[VERIFY_SIGNATURE]   Plan: ${planId} (${planConfig.validity} month${planConfig.validity > 1 ? 's' : ''})`);
+  console.log(`[VERIFY_SIGNATURE]   Start: ${user.subscriptionStartDate.toISOString()}`);
+  console.log(`[VERIFY_SIGNATURE]   End: ${user.subscriptionEndDate.toISOString()}`);
+  console.log(`[VERIFY_SIGNATURE]   Duration: ${planConfig.validity} month(s)`);
+} else {
+  console.warn(`[VERIFY_SIGNATURE] ⚠️ Plan config not found for: ${planId}`);
+  // Fallback: set end date to 1 month
+  const endDate = new Date(now);
+  endDate.setMonth(endDate.getMonth() + 1);
+  user.subscriptionEndDate = endDate;
+}
+
                             await user.save();
 
                             subscriptionStatusUpdated = true;
