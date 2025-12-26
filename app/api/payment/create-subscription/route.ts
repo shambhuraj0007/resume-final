@@ -5,7 +5,7 @@ import User from "@/models/User";
 import { createCashfreeSubscription } from "@/payment/cashfree";
 import dbConnect from "@/lib/mongodb";
 
-// Plan Configurations
+
 // const SUBSCRIPTION_PLANS: any = {
 //     // India (Cashfree)
 //     "pro-monthly-inr": {
@@ -159,7 +159,7 @@ export async function POST(req: NextRequest) {
             if (!plan.planId) return NextResponse.json({ error: "Configuration Error: Missing Cashfree Plan ID" }, { status: 500 });
 
             const customerPhone = user.phone || "9999999999";
-            const returnUrl = `${process.env.NEXTAUTH_URL}/api/payment/success-redirect`;
+           const returnUrl = `${process.env.NEXTAUTH_URL}/api/payment/success-redirect`;
 
             const cfSub = await createCashfreeSubscription(
                 plan.planId,
@@ -174,8 +174,12 @@ export async function POST(req: NextRequest) {
 
             // Save subscription details to User
             user.subscriptionId = cfSub.subscriptionId;
+            user.cashfreeSubscriptionId = cfSub.cfSubscriptionId;
             user.subscriptionProvider = "CASHFREE";
-            user.subscriptionStatus = "active"; // Or "pending" initially? Cashfree returns INITIALIZED
+            user.subscriptionStatus = "unpaid";
+            user.subscriptionPlanId = plan.planId;
+            user.subscriptionPlanName = plan.planId;
+            user.subscriptionAmount = plan.price;
             await user.save();
 
             // Frontend will use subscriptionSessionId with Cashfree SDK

@@ -28,9 +28,20 @@ function StatusContent() {
 
     try {
       const orderId = searchParams.get('order_id');
-      const cfSubscriptionId = searchParams.get('cf_subscriptionId');
-      const cfStatus = searchParams.get('cf_status');
-      const cfCheckoutStatus = searchParams.get('cf_checkoutStatus');
+
+      // Cashfree can send various param names; normalise them
+      const cfSubscriptionId =
+        searchParams.get('cf_subscriptionId') ||
+        searchParams.get('cf_subscription_id') ||
+        searchParams.get('subscription_id');
+
+      const cfStatus =
+        searchParams.get('cf_status') ||
+        searchParams.get('subscription_status');
+
+      const cfCheckoutStatus =
+        searchParams.get('cf_checkoutStatus') ||
+        searchParams.get('cf_checkout_status');
 
       // 1. One-time Order Flow (Credits)
       if (orderId) {
@@ -83,7 +94,8 @@ function StatusContent() {
       }
 
       // 2. Subscription Flow
-      if (cfSubscriptionId || cfStatus || cfCheckoutStatus) {
+      // If we have any subscription-like params, attempt verification.
+      if (cfSubscriptionId || cfStatus || cfCheckoutStatus || searchParams.get('subscription_id') || searchParams.get('cf_subscription_id')) {
         if (cfCheckoutStatus === 'FAILED') throw new Error('Payment failed. Please try again.');
 
         const queryString = searchParams.toString();

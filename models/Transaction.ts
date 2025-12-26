@@ -7,23 +7,22 @@ export interface ITransaction extends Document {
   razorpayOrderId?: string;
   razorpayPaymentId?: string;
   razorpaySignature?: string;
-  // Cashfree fields
   cfOrderId?: string;
   cfPaymentId?: string;
-  // PayPal fields
+  cfSubscriptionId?: string;
   paypalOrderId?: string;
   paypalSubscriptionId?: string;
-
   gateway: 'RAZORPAY' | 'CASHFREE' | 'PAYPAL';
   amount: number;
   currency: string;
   credits: number;
   status: 'pending' | 'completed' | 'failed' | 'refunded';
-  packageType: string; // Changed to string to support various pack names
+  packageType: string;
   validityMonths: number;
   paymentMethod?: string;
   failureReason?: string;
   rawResponse?: any;
+  completedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,25 +38,22 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
       type: String,
       required: true,
       unique: true,
+      // ❌ Remove this: index: true (duplicate with unique: true)
     },
     paymentId: String,
     razorpayOrderId: String,
     razorpayPaymentId: String,
     razorpaySignature: String,
-
-    // Cashfree
     cfOrderId: String,
     cfPaymentId: String,
-
-    // PayPal
+    cfSubscriptionId: String,
     paypalOrderId: String,
     paypalSubscriptionId: String,
-
     gateway: {
       type: String,
       enum: ['RAZORPAY', 'CASHFREE', 'PAYPAL'],
       required: true,
-      default: 'RAZORPAY' // For backward compatibility
+      default: 'RAZORPAY'
     },
     amount: {
       type: Number,
@@ -87,16 +83,18 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
     paymentMethod: String,
     failureReason: String,
     rawResponse: Schema.Types.Mixed,
+    completedAt: Date,
   },
   {
     timestamps: true,
   }
 );
 
-// Indexes for efficient queries
+// ✅ Define indexes only here (remove from field definitions above)
 TransactionSchema.index({ userId: 1, createdAt: -1 });
-
 TransactionSchema.index({ razorpayOrderId: 1 });
+TransactionSchema.index({ cfPaymentId: 1 });
+TransactionSchema.index({ cfSubscriptionId: 1 });
 
 const Transaction: Model<ITransaction> = mongoose.models.Transaction || mongoose.model<ITransaction>('Transaction', TransactionSchema);
 

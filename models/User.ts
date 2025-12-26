@@ -9,18 +9,25 @@ export interface IUser extends Document {
   _id: any;
   email: string;
   name: string;
-  phone?: string; // Phone number for SMS auth
-  password?: string; // Optional for OAuth users
+  phone?: string;
+  password?: string;
   image?: string;
   emailVerified?: Date | null;
-  isVerified?: boolean; // Phone/email verification status
-  provider: 'credentials' | 'google' | 'phone'; // Track auth provider
-  credits: number; // User credits for premium features
-  isPaidUser: boolean; // Flag for users who have purchased credits or subscription
+  isVerified?: boolean;
+  provider: 'credentials' | 'google' | 'phone';
+  credits: number;
+  isPaidUser: boolean;
   region?: string;
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'past_due' | 'unpaid' | 'cancelled' | 'expired' | null;
   subscriptionProvider?: 'CASHFREE' | 'PAYPAL' | null;
+  subscriptionPlanName?: string | null;
+  subscriptionPlanId?: string | null;
+  subscriptionStartDate?: Date | null;
+  subscriptionEndDate?: Date | null;
+  subscriptionAmount?: number | null;
+  cashfreeSubscriptionId?: string | null;
+  paypalSubscriptionId?: string | null;
   settings: IUserSettings;
   createdAt: Date;
   updatedAt: Date;
@@ -31,12 +38,13 @@ const UserSchema: Schema<IUser> = new Schema(
     email: {
       type: String,
       required: function (this: IUser) {
-        return !this.phone; // Email required only if no phone
+        return !this.phone;
       },
       unique: true,
-      sparse: true, // Allow null/undefined values to be non-unique
+      sparse: true,
       lowercase: true,
       trim: true,
+      // ❌ Remove: index: true (duplicate with unique: true)
     },
     name: {
       type: String,
@@ -45,12 +53,13 @@ const UserSchema: Schema<IUser> = new Schema(
     phone: {
       type: String,
       unique: true,
-      sparse: true, // Allow null/undefined values to be non-unique
+      sparse: true,
       trim: true,
+      // ❌ Remove: index: true (duplicate with unique: true)
     },
     password: {
       type: String,
-      select: false, // Don't include password in queries by default
+      select: false,
     },
     image: String,
     emailVerified: {
@@ -68,9 +77,12 @@ const UserSchema: Schema<IUser> = new Schema(
     },
     region: {
       type: String,
-      default: 'INDIA', // Default to India, will be updated by GeoIP
+      default: 'INDIA',
     },
-    subscriptionId: String,
+    subscriptionId: {
+      type: String,
+      default: null,
+    },
     subscriptionStatus: {
       type: String,
       enum: ['active', 'past_due', 'unpaid', 'cancelled', 'expired', null],
@@ -81,9 +93,39 @@ const UserSchema: Schema<IUser> = new Schema(
       enum: ['CASHFREE', 'PAYPAL', null],
       default: null,
     },
+    subscriptionPlanName: {
+      type: String,
+      default: null,
+    },
+    subscriptionPlanId: {
+      type: String,
+      default: null,
+    },
+    subscriptionStartDate: {
+      type: Date,
+      default: null,
+    },
+    subscriptionEndDate: {
+      type: Date,
+      default: null,
+    },
+    subscriptionAmount: {
+      type: Number,
+      default: null,
+    },
+    cashfreeSubscriptionId: {
+      type: String,
+      default: null,
+      // ❌ Remove: index: true (will be added below)
+    },
+    paypalSubscriptionId: {
+      type: String,
+      default: null,
+      // ❌ Remove: index: true (will be added below)
+    },
     credits: {
       type: Number,
-      default: 3, // Give 3 free credits to new users
+      default: 3,
       min: 0,
     },
     isPaidUser: {
@@ -108,6 +150,11 @@ const UserSchema: Schema<IUser> = new Schema(
     timestamps: true,
   }
 );
+
+// ✅ Define indexes only here (avoid duplicates with unique fields)
+UserSchema.index({ cashfreeSubscriptionId: 1 });
+UserSchema.index({ paypalSubscriptionId: 1 });
+UserSchema.index({ subscriptionStatus: 1 });
 
 const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 

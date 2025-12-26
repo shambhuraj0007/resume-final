@@ -37,7 +37,9 @@ const PLAN_CONFIG: Record<string, { credits: number, validity: number, type: str
     "pro_monthly_599": { credits: 200, validity: 1, type: "pro", amount: 599, currency: "INR" },
     "pro_quarterly_1499": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" },
     "PRO_MONTHLY": { credits: 200, validity: 1, type: "pro", amount: 599, currency: "INR" },
-    "PRO_QUARTERLY": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" }
+    "PRO_QUARTERLY": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" },
+    "shortlistai_pro_monthly": { credits: 200, validity: 1, type: "pro", amount: 599, currency: "INR" },
+    "shortlistai_pro_quarterly": { credits: 700, validity: 3, type: "pro", amount: 1499, currency: "INR" }
 };
 
 export async function GET(req: NextRequest) {
@@ -46,7 +48,9 @@ export async function GET(req: NextRequest) {
         const secretKey = process.env.CASHFREE_SECRET_KEY;
 
         const cfSubscriptionId =
-            searchParams.get('cf_subscriptionId') || searchParams.get('subscription_id');
+            searchParams.get('subscription_id') ||
+            searchParams.get('cf_subscriptionId') ||
+            searchParams.get('cf_subscription_id');
         const cfStatus = searchParams.get('cf_status');
         const cfCheckoutStatus = searchParams.get('cf_checkoutStatus');
 
@@ -96,6 +100,7 @@ export async function GET(req: NextRequest) {
 
                         const currentStatus = subDetails.subscription_status;
                         const planId = subDetails.plan_details?.plan_id;
+                        const cfInternalId = (subDetails as any).cf_subscription_id || (subDetails as any).cf_subscriptionId;
 
                         // 2. Check if valid status
                         if (currentStatus === "ACTIVE" || currentStatus === "BANK_APPROVAL_PENDING" || currentStatus === "ON_HOLD") {
@@ -104,6 +109,13 @@ export async function GET(req: NextRequest) {
                             user.subscriptionId = cfSubscriptionId;
                             user.subscriptionProvider = 'CASHFREE';
                             user.subscriptionStatus = 'active'; // Grant access
+                            if (planId) {
+                                user.subscriptionPlanId = planId;
+                                user.subscriptionPlanName = planId;
+                            }
+                            if (cfInternalId) {
+                                user.cashfreeSubscriptionId = cfInternalId;
+                            }
                             await user.save();
 
                             subscriptionStatusUpdated = true;
@@ -119,7 +131,7 @@ export async function GET(req: NextRequest) {
 
                             // Let's create a Transaction if one doesn't exist for this sub ID
                             const existingTx = await Transaction.findOne({
-                                paypalSubscriptionId: cfSubscriptionId // reusing field or verify schema
+                                cfSubscriptionId: cfSubscriptionId
                             });
 
                             // To be safe and avoid double credit (webhook + this), we can check if credits > 0 
@@ -132,7 +144,7 @@ export async function GET(req: NextRequest) {
                                     userId: user._id,
                                     gateway: 'CASHFREE',
                                     orderId: `SUB_VERIFY_${Date.now()}`,
-                                    paypalSubscriptionId: cfSubscriptionId, // Using as unique ref
+                                    cfSubscriptionId: cfSubscriptionId,
                                     amount: planConfig.amount,
                                     currency: planConfig.currency,
                                     credits: planConfig.credits,

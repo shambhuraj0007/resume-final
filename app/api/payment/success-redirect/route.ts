@@ -12,9 +12,23 @@ export async function POST(req: NextRequest) {
         const protocol = req.headers.get("x-forwarded-proto") || "http";
         const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`;
 
-        const searchParams = req.nextUrl.searchParams.toString();
-        // Force /pricing and preserve params
-        const redirectUrl = new URL(`/pricing?${searchParams}`, baseUrl);
+        // Combine existing query params with POST form fields
+        const params = new URLSearchParams(req.nextUrl.searchParams);
+
+        try {
+            const formData = await req.formData();
+            formData.forEach((value, key) => {
+                params.append(key, value.toString());
+            });
+        } catch (err) {
+            console.error("[SUCCESS_REDIRECT] Failed to read form data:", err);
+        }
+
+        console.log("[SUCCESS_REDIRECT] POST combined params:", Object.fromEntries(params.entries()));
+
+        // Redirect to visual status page so it can call /api/payment/verify-signature
+        const redirectUrl = new URL(`/payment/status`, baseUrl);
+        redirectUrl.search = params.toString();
 
         console.log(`[SUCCESS_REDIRECT] POST Redirecting to: ${redirectUrl.toString()}`);
         return NextResponse.redirect(redirectUrl.toString(), 303); // 303 See Other is specifically for GET redirect after POST
@@ -31,7 +45,7 @@ export async function GET(req: NextRequest) {
         const baseUrl = process.env.NEXTAUTH_URL || `${protocol}://${host}`;
 
         const searchParams = req.nextUrl.searchParams.toString();
-        const redirectUrl = new URL(`/pricing?${searchParams}`, baseUrl);
+        const redirectUrl = new URL(`/payment/status${searchParams ? `?${searchParams}` : ""}`, baseUrl);
 
         console.log(`[SUCCESS_REDIRECT] GET Redirecting to: ${redirectUrl.toString()}`);
         return NextResponse.redirect(redirectUrl.toString());
