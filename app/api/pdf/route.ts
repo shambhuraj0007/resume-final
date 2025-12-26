@@ -9,22 +9,27 @@ export const maxDuration = 60;
 
 let browserPromise: Promise<Browser | BrowserCore> | null = null;
 
+// app/api/pdf/route.ts
+
 async function launchBrowser() {
   if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production") {
-    // Configure Sparticuz Chromium for headless, non-GPU mode on Linux (e.g. AWS EC2/Lambda)
-    chromium.setHeadlessMode = true;
-    chromium.setGraphicsMode = false;
-
+    // Configure Sparticuz Chromium for headless, non-GPU mode
     const executablePath = await chromium.executablePath();
 
     console.log("[DEBUG] Launching PuppeteerCore in production");
-    console.log("[DEBUG] Executable path:", executablePath);
 
     return puppeteerCore.launch({
       executablePath,
-      args: [...chromium.args, "--disable-gpu", "--disable-dev-shm-usage"],
-      headless: chromium.headless,
-      defaultViewport: chromium.defaultViewport,
+      // chromium.args are still required for serverless stability
+      args: [...chromium.args, "--hide-scrollbars", "--disable-web-security"],
+      // FIXED: Hardcode headless mode (chromium.headless is removed)
+      headless: true,
+      // FIXED: Define viewport manually (chromium.defaultViewport is removed)
+      defaultViewport: {
+        width: 1920,
+        height: 1080,
+        deviceScaleFactor: 1,
+      },
     });
   }
 
@@ -32,8 +37,14 @@ async function launchBrowser() {
   return puppeteer.launch({
     headless: true,
     args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    defaultViewport: {
+      width: 1920,
+      height: 1080,
+    },
   });
 }
+
+
 
 async function getBrowser() {
   if (!browserPromise) {
