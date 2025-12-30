@@ -118,7 +118,9 @@ function CreditBalance({ onUpgradeClick }: CreditBalanceProps) {
               /* Zero Credits / Free User Section */
               <div className="space-y-3">
                 <p className="text-xs text-muted-foreground px-1">
-                  {isPro ? "You've used all your credits. Get more to continue." : "3 scans remaining this month (rolling)"}
+                  {isPro
+                    ? "You've used all your credits. Get more to continue."
+                    : `${credits} scans remaining this month (rolling)`}
                 </p>
                 {onUpgradeClick && (
                   <Button onClick={onUpgradeClick} className="w-full bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-md">

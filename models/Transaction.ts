@@ -10,6 +10,7 @@ export interface ITransaction extends Document {
   // Cashfree fields
   cfOrderId?: string;
   cfPaymentId?: string;
+  cfSubscriptionId?: string;
   // PayPal fields
   paypalOrderId?: string;
   paypalSubscriptionId?: string;
@@ -48,6 +49,7 @@ const TransactionSchema: Schema<ITransaction> = new Schema(
     // Cashfree
     cfOrderId: String,
     cfPaymentId: String,
+    cfSubscriptionId: String,
 
     // PayPal
     paypalOrderId: String,

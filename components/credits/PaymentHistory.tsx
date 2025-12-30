@@ -182,7 +182,10 @@ export default function PaymentHistory(): JSX.Element {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <p className="font-medium text-sm">
-                        {t.packageType.charAt(0).toUpperCase() + t.packageType.slice(1)} Pack
+                        {t.packageType === 'pro-monthly-inr' ? 'Pro Monthly' :
+                          t.packageType === 'pro-quarterly-inr' ? 'Pro Quarterly' :
+                            t.packageType.includes('-scan-pack') ? t.packageType.replace('-scan-pack', ' Scans Pack') :
+                              t.packageType.charAt(0).toUpperCase() + t.packageType.slice(1).replace(/-/g, ' ')}
                       </p>
                       {t.status === 'pending' && (
                         <div className="flex items-center gap-2">

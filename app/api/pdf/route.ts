@@ -18,15 +18,30 @@ async function launchBrowser() {
 
     return puppeteerCore.launch({
       executablePath,
-      args: chromium.args,
+      args: [
+        ...chromium.args,
+        '--disable-dev-shm-usage',      // Critical for EC2
+        '--disable-accelerated-2d-canvas',
+        '--no-first-run',
+        '--no-zygote',
+        '--single-process',             // Important for limited memory
+        '--disable-gpu'
+      ],
       headless: true,
+      timeout: 60000,                   // Increased browser launch timeout
+      protocolTimeout: 60000,           // Increased protocol timeout
     });
   }
 
   console.log("[DEBUG] Launching Puppeteer in dev mode");
   return puppeteer.launch({
     headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",       // Also add for dev
+      "--disable-gpu"
+    ],
   });
 }
 
@@ -40,12 +55,14 @@ async function getBrowser() {
 
     // If the browser was closed for some reason, relaunch
     if ("isConnected" in browser && !browser.isConnected()) {
+      console.log("[DEBUG] Browser disconnected, relaunching...");
       browserPromise = launchBrowser();
       return browserPromise;
     }
 
     return browser;
   } catch (error) {
+    console.error("[ERROR] Browser launch failed:", error);
     browserPromise = null;
     throw error;
   }
@@ -61,12 +78,15 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  let page;
+
   try {
     const browser = await getBrowser();
-    const page = await browser.newPage();
+    page = await browser.newPage();
 
-    page.setDefaultNavigationTimeout(30000);
-    page.setDefaultTimeout(30000);
+    // Increased timeouts for EC2
+    page.setDefaultNavigationTimeout(60000);  // 60s instead of 30s
+    page.setDefaultTimeout(60000);            // 60s instead of 30s
 
     const baseUrl =
       process.env.NEXT_PUBLIC_APP_URL ||
@@ -74,34 +94,66 @@ export async function GET(request: NextRequest) {
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:8888");
 
     const url = new URL(`${baseUrl}/resume/download`);
-    // Pass everything through to the download page
     url.search = searchParams.toString();
 
     console.log("[DEBUG] Navigating to:", url.toString());
 
-    await page.goto(url.toString(), { waitUntil: "domcontentloaded" });
-
-    // Wait for resume content to be fully loaded
-    await page.waitForSelector("#resume-content", {
-      visible: true,
-      timeout: 20000,
+    // Better page navigation
+    await page.goto(url.toString(), {
+      waitUntil: ["networkidle0", "domcontentloaded"],  // Wait for network to settle
+      timeout: 60000
     });
 
-    // Wait for fonts to load (if available) without blocking unnecessarily
-    await page.evaluate(() => (document as any).fonts?.ready?.catch(() => null));
+    // Wait for resume content with fallback
+    console.log("[DEBUG] Waiting for #resume-content...");
+    try {
+      await page.waitForSelector("#resume-content", {
+        visible: true,
+        timeout: 60000,  // Increased from 20s to 60s
+      });
+      console.log("[DEBUG] #resume-content found");
+    } catch (selectorError) {
+      console.warn("[WARN] #resume-content not found, trying body fallback");
+      // Fallback to body if specific selector not found
+      await page.waitForSelector("body", {
+        visible: true,
+        timeout: 10000
+      });
+    }
+
+    // Wait for fonts to load
+    await page.evaluate(() => {
+      return (document as any).fonts?.ready?.catch(() => {
+        console.warn("Font loading timed out or not supported");
+        return null;
+      });
+    });
+
+    // Additional wait to ensure rendering is complete
+    await page.evaluate(() => {
+      return new Promise((resolve) => {
+        if (document.readyState === 'complete') {
+          resolve(true);
+        } else {
+          window.addEventListener('load', () => resolve(true));
+        }
+      });
+    });
+
+    console.log("[DEBUG] Page fully loaded, generating PDF...");
 
     // Set viewport to match A4 dimensions exactly
     await page.setViewport({
-      width: 794,  // 21cm in pixels at 96 DPI
-      height: 1123, // 29.7cm in pixels at 96 DPI
+      width: 794,
+      height: 1123,
       deviceScaleFactor: 1,
     });
 
-    // Generate PDF with optimized settings to prevent empty pages
+    // Generate PDF
     const pdf = await page.pdf({
       format: "A4",
       printBackground: true,
-      preferCSSPageSize: true, // Let CSS control page sizing
+      preferCSSPageSize: true,
       displayHeaderFooter: false,
       margin: {
         top: "0px",
@@ -109,34 +161,49 @@ export async function GET(request: NextRequest) {
         bottom: "0px",
         left: "0px",
       },
-      // Ensure consistent page breaking
       pageRanges: '',
+      timeout: 60000,  // Add PDF generation timeout
     });
+
+    console.log("[DEBUG] PDF generated successfully, size:", pdf.length);
 
     return new NextResponse(Buffer.from(pdf), {
       status: 200,
       headers: {
         "Content-Type": "application/pdf",
         "Content-Length": pdf.length.toString(),
-        "Content-Disposition": `inline; filename="resume.pdf"`, // Changed to inline for preview support
+        "Content-Disposition": `inline; filename="resume.pdf"`,
       },
     });
+
   } catch (error) {
-    console.error("PDF generation error:", error);
+    console.error("[ERROR] PDF generation error:", error);
+
+    // Log more details
+    if (error instanceof Error) {
+      console.error("[ERROR] Error name:", error.name);
+      console.error("[ERROR] Error message:", error.message);
+      console.error("[ERROR] Error stack:", error.stack);
+    }
+
     return NextResponse.json(
-      { message: "Error generating PDF", error: String(error) },
+      {
+        message: "Error generating PDF",
+        error: String(error),
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
+
   } finally {
-    try {
-      const browser = await browserPromise;
-      if (browser) {
-        const pages = await browser.pages();
-        const extraPages = pages.filter((page) => page.url().includes("/resume/download"));
-        await Promise.all(extraPages.map((page) => page.close().catch(() => null)));
+    // Clean up page
+    if (page) {
+      try {
+        await page.close();
+        console.log("[DEBUG] Page closed successfully");
+      } catch (cleanupError) {
+        console.error("[ERROR] Error closing page:", cleanupError);
       }
-    } catch (cleanupError) {
-      console.error("Error cleaning up Puppeteer pages:", cleanupError);
     }
   }
 }

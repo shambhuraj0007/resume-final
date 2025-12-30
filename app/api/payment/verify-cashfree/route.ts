@@ -8,10 +8,20 @@ import User from "@/models/User";
 import { verifyCashfreeOrder } from "@/payment/cashfree";
 import { addCredits } from "@/payment/creditService";
 
+// Map plans to credits/validity (Consistency with Webhook)
+const PLAN_CONFIG: Record<string, { name: string }> = {
+    "pro-monthly-inr": { name: "Pro Monthly" },
+    "pro-quarterly-inr": { name: "Pro Quarterly" },
+    "pro_monthly_599": { name: "Pro Monthly" },
+    "pro_quarterly_1499": { name: "Pro Quarterly" },
+    "PRO_MONTHLY": { name: "Pro Monthly" },
+    "PRO_QUARTERLY": { name: "Pro Quarterly" }
+};
+
 export async function POST(req: NextRequest) {
     try {
         await dbConnect();
-        // 1. Check for NextAuth session
+        // ... (auth logic) ...
         const session = await getServerSession(authOptions);
         let userEmail = session?.user?.email;
 
@@ -73,6 +83,14 @@ export async function POST(req: NextRequest) {
                     transaction.credits,
                     transaction.validityMonths
                 );
+
+                // Update User Plan Name if it's a pro subscription package
+                const planInfo = PLAN_CONFIG[transaction.packageType];
+                if (planInfo) {
+                    user.subscriptionPlanName = planInfo.name;
+                    user.subscriptionStatus = 'active';
+                    await user.save();
+                }
             }
 
             return NextResponse.json({ success: true });

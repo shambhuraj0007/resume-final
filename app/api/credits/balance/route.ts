@@ -58,6 +58,7 @@ export async function GET(req: NextRequest) {
       expiryDate: credit.expiryDate,
       hasExpired: credit.expiryDate ? new Date() > credit.expiryDate : false,
       subscriptionStatus: user.subscriptionStatus,
+      subscriptionPlanName: user.subscriptionPlanName,
       isPaidUser: user.isPaidUser || false,
       isPro: user.subscriptionStatus === 'active' || user.isPaidUser === true,
       isSubscriber: user.subscriptionStatus === 'active',

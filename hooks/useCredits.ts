@@ -7,6 +7,7 @@ interface CreditBalance {
   expiryDate: string | null;
   hasExpired: boolean;
   subscriptionStatus?: string;
+  subscriptionPlanName?: string | null;
   isPaidUser?: boolean;
   isPro?: boolean;
   isSubscriber?: boolean;
@@ -158,5 +159,6 @@ export function useCredits() {
     isPro: balance?.isPro || false,
     isSubscriber: balance?.isSubscriber || false,
     subscriptionStatus: balance?.subscriptionStatus || null,
+    subscriptionPlanName: balance?.subscriptionPlanName || null,
   };
 }

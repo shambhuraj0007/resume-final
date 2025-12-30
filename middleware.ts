@@ -15,9 +15,13 @@ export default withAuth(
         const publicViewRoutes = [
           "/",              // Homepage
           "/about",         // About page
+          "/pricing",       // ✅ ADDED - Pricing page (public view)
           "/signin",        // Sign in page
           "/verify-email",  // Email verification
           "/api/auth",      // Auth API routes
+          "/api/payment/packages", // ✅ ADDED - Pricing API
+          "/api/payment/verify-signature", // ✅ ADDED - Payment webhook
+          "/api/payment/verify-paypal", // ✅ ADDED - PayPal verification
         ];
 
         // Routes that require authentication to access

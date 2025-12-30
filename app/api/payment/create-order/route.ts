@@ -38,6 +38,9 @@ export async function POST(req: NextRequest) {
       const pack = CREDIT_PACKS[packageType];
       const orderId = `ORDER_${uuidv4().substring(0, 8)}_${Date.now()}`; // Shortened for Cashfree limits if any
 
+      // Use the unified status page for verification
+      const returnUrl = `${process.env.NEXTAUTH_URL}/payment/status?order_id={order_id}`;
+
       // Ensure phone number exists for Cashfree
       const customerPhone = user.phone || "9999999999"; // Fallback dummy if validation allows, else fail. 
       // Ideally should prompt user for phone. Cashfree usually requires it.

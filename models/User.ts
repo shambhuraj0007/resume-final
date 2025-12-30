@@ -21,6 +21,7 @@ export interface IUser extends Document {
   subscriptionId?: string;
   subscriptionStatus?: 'active' | 'past_due' | 'unpaid' | 'cancelled' | 'expired' | null;
   subscriptionProvider?: 'CASHFREE' | 'PAYPAL' | null;
+  subscriptionPlanName?: string | null;
   settings: IUserSettings;
   createdAt: Date;
   updatedAt: Date;
@@ -79,6 +80,10 @@ const UserSchema: Schema<IUser> = new Schema(
     subscriptionProvider: {
       type: String,
       enum: ['CASHFREE', 'PAYPAL', null],
+      default: null,
+    },
+    subscriptionPlanName: {
+      type: String,
       default: null,
     },
     credits: {

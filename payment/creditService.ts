@@ -67,6 +67,10 @@ export async function getUserCredits(userId: string) {
       }
     }
 
+    // Ensure User.credits is always in sync with Credit.credits so that
+    // the number of credits always matches the number of scans remaining
+    await User.updateOne({ _id: userId, credits: { $ne: credit.credits } }, { credits: credit.credits });
+
     return credit;
   } catch (error) {
     console.error('Error getting user credits:', error);

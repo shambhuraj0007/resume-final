@@ -8,12 +8,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { BarChart3, Award, Loader2, Sparkles, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useCredits } from '@/hooks/useCredits';
+import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 
 // Lazy load heavy components
 const AnalysisHistory = lazy(() => import('@/components/credits/AnalysisHistory'));
 const PaymentHistory = lazy(() => import('@/components/credits/PaymentHistory'));
 const UpgradeModal = lazy(() => import('@/components/credits/UpgradeModal'));
+import { Toaster } from "@/components/ui/toaster";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -23,6 +25,7 @@ export default function DashboardPage() {
   const [memberSince, setMemberSince] = useState<string | null>(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const { balance, refreshBalance, isPro, isSubscriber } = useCredits();
+  const { toast } = useToast();
 
   if (status === 'loading') {
     return (
@@ -40,7 +43,14 @@ export default function DashboardPage() {
   }
 
   const handleUpgradeSuccess = () => {
-    window.location.reload();
+    toast({
+      title: "Upgrade Successful",
+      description: "Your plan has been updated and credits added.",
+      className: "bg-green-600 text-white border-green-700",
+    });
+    setTimeout(() => {
+      window.location.reload();
+    }, 2000);
   };
 
   useEffect(() => {
@@ -131,7 +141,7 @@ export default function DashboardPage() {
             <CardContent className="pb-4 sm:pb-6">
               {isSubscriber ? (
                 <div className="space-y-2">
-                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">Plan: Pro Monthly</p>
+                  <p className="text-sm font-semibold text-green-600 dark:text-green-400">Plan: {balance?.subscriptionPlanName || 'Pro Monthly'}</p>
                   <p className="text-sm">Renews: {balance?.expiryDate ? format(new Date(balance.expiryDate), 'MMM dd, yyyy') : 'N/A'}</p>
                   <Button variant="outline" size="sm" onClick={() => router.push('/profile')} className="text-red-500 border-red-200 hover:bg-red-50 hover:text-red-600 h-7 text-xs">
                     View Details
@@ -211,6 +221,7 @@ export default function DashboardPage() {
           />
         </Suspense>
       </div>
+      <Toaster />
     </div>
   );
 }

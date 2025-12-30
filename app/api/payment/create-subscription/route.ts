@@ -155,11 +155,11 @@ export async function POST(req: NextRequest) {
         const subscriptionId = `SUB_${Date.now()}`; // Internal ID reference if needed, usually Gateway generates one
 
         if (plan.provider === "CASHFREE") {
-            // Ensure planId is valid in Cashfree dashboard
             if (!plan.planId) return NextResponse.json({ error: "Configuration Error: Missing Cashfree Plan ID" }, { status: 500 });
 
             const customerPhone = user.phone || "9999999999";
-            const returnUrl = `${process.env.NEXTAUTH_URL}/api/payment/success-redirect`;
+
+            const returnUrl = `${process.env.NEXTAUTH_URL}/payment/status?cf_subscription_id={subscription_id}`;
 
             const cfSub = await createCashfreeSubscription(
                 plan.planId,
@@ -168,28 +168,26 @@ export async function POST(req: NextRequest) {
                 customerPhone,
                 user.email,
                 returnUrl,
-                user.name || "Customer", // Pass user name
-                plan.price // Set authorization amount to plan price
+                user.name || "Customer",
+                plan.price
             );
 
-            // Save subscription details to User
-            user.subscriptionId = cfSub.subscriptionId;
+            user.subscriptionId = cfSub.cfSubscriptionId;
             user.subscriptionProvider = "CASHFREE";
-            user.subscriptionStatus = "active"; // Or "pending" initially? Cashfree returns INITIALIZED
+            user.subscriptionStatus = null; // Will be updated by webhook
             await user.save();
 
-            // Frontend will use subscriptionSessionId with Cashfree SDK
-            // No URL construction needed - SDK handles the checkout flow
+            console.log(`[CREATE_SUBSCRIPTION] Saved subscription ID: ${cfSub.cfSubscriptionId} for user: ${user.email}`);
 
             return NextResponse.json({
                 provider: "CASHFREE",
                 subscriptionId: cfSub.subscriptionId,
                 cfSubscriptionId: cfSub.cfSubscriptionId,
-                subscriptionSessionId: cfSub.subscriptionSessionId, // ✅ For SDK
+                subscriptionSessionId: cfSub.subscriptionSessionId,
                 status: cfSub.status
             });
-
-        } else if (plan.provider === "PAYPAL") {
+        }
+        else if (plan.provider === "PAYPAL") {
             // For PayPal, we usually just return the Plan ID and let the frontend SDK handle the subscription flow flow
             // (Smart Payment Buttons).
             // However, if we need server-side initiation, it's complex. 

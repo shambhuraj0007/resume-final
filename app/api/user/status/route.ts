@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
             isPaidUser: user.isPaidUser || false,
             isPro: user.subscriptionStatus === 'active' || user.isPaidUser === true,
             isSubscriber: user.subscriptionStatus === 'active',
+            subscriptionPlanName: user.subscriptionPlanName || null,
             nextCreditReset: nextResetDate,
             lastCreditReset: creditDoc.lastResetDate
         });
